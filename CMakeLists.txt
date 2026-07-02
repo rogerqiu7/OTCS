@@ -29,9 +29,13 @@ message(STATUS "Configuring OTCS ${PROJECT_VERSION}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-# Project layout placeholders.
-add_subdirectory(common EXCLUDE_FROM_ALL)
+# Shared code is added first so applications and tests can depend on it.
+add_subdirectory(common)
 add_subdirectory(protocol EXCLUDE_FROM_ALL)
 add_subdirectory(flight_computer EXCLUDE_FROM_ALL)
 add_subdirectory(ground_station)
-add_subdirectory(tests EXCLUDE_FROM_ALL)
+
+if(OTCS_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
