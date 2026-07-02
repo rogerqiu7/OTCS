@@ -6,7 +6,7 @@ OTCS (Orbital Telemetry & Command System) is a modern C++ and embedded systems p
 
 Unlike a simple software-only simulation, OTCS combines:
 
-* Modern C++
+* Modern C++20
 * Cross-platform desktop development
 * Embedded firmware development
 * Hardware communication
@@ -26,6 +26,79 @@ The project is inspired by the software architecture used in satellites, unmanne
 The goal is not to build an actual satellite.
 
 The goal is to build a realistic command-and-control platform that demonstrates the kinds of software engineering found in aerospace, defense, robotics, embedded systems, and industrial automation.
+
+---
+
+# Engineering Stance
+
+OTCS targets **C++20** as the project language standard.
+
+However, the project should use a **conservative embedded-friendly subset** of modern C++.
+
+The intent is not to turn OTCS into a language feature showcase.
+
+The intent is to demonstrate the engineering qualities hiring teams usually care about most:
+
+* Clear architecture
+* Good separation of concerns
+* Deterministic behavior
+* Portable code
+* Explicit ownership and resource handling
+* Testable components
+* Readable state machines
+* Defensive command and protocol handling
+* Logging and diagnosability
+
+In practice, this means:
+
+* Prefer simple, explicit code over clever abstractions
+* Use C++20 where it improves clarity or portability
+* Avoid unnecessary template complexity
+* Avoid depending on niche or flashy features unless they clearly help the design
+* Keep host-side and embedded-side responsibilities separate
+* Keep protocol definitions separate from UI or transport details
+
+---
+
+# Daily Workflow
+
+Use these commands from the repo root during normal development.
+
+## First-time configure for a fresh build directory
+
+Run this once when:
+
+* creating a new build directory
+* switching generators or compilers
+* deleting the old build directory
+
+```bash
+cmake -S . -B build/macos-debug-fresh -G Ninja -DCMAKE_BUILD_TYPE=Debug
+```
+
+## Ground Station: rebuild and run after code changes
+
+If you changed files under `ground_station/`, usually just run:
+
+```bash
+cmake --build build/macos-debug-fresh
+./build/macos-debug-fresh/ground_station/otcs_ground_station
+```
+
+## Flight Computer host demo: rebuild and run after code changes
+
+If you changed files under `flight_computer/`, run:
+
+```bash
+cmake --build build/macos-debug-fresh --target otcs_flight_computer_host_demo
+./build/macos-debug-fresh/flight_computer/otcs_flight_computer_host_demo
+```
+
+## When you do not need to reconfigure
+
+You usually do not need to rerun the full `cmake -S . -B ...` command for normal `.cpp` or `.hpp` edits.
+
+`cmake --build ...` is usually enough, and it may automatically rerun CMake if a `CMakeLists.txt` file changed.
 
 ---
 
@@ -51,6 +124,8 @@ The project should demonstrate skills commonly expected from:
 * Aerospace Software Engineers
 * Defense Systems Engineers
 * Linux/System Software Engineers
+
+The strongest hiring signal should come from code quality and system design, not just language version choice.
 
 ---
 
@@ -227,6 +302,14 @@ Later versions will add:
 * Optional sensors
 
 This allows the project to grow in small, testable steps.
+
+As the implementation grows, every new feature should preserve:
+
+* Clear module boundaries
+* Host and firmware separation
+* Protocol stability
+* Easy local testing
+* Cross-platform buildability for host-side code
 
 ---
 
@@ -443,6 +526,20 @@ The Pico SDK provides:
 * UART support
 * CMake integration
 * Examples
+
+## C++ Standard
+
+OTCS uses **C++20**.
+
+That choice keeps the project current for portfolio and hiring purposes while still allowing the implementation style to remain conservative and portable.
+
+Recommended usage style:
+
+* Use straightforward modern C++ first
+* Prefer value types and explicit ownership
+* Keep memory behavior understandable
+* Favor simple interfaces between modules
+* Reach for newer language/library features only when they materially improve clarity
 
 ---
 
