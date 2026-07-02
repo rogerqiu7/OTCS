@@ -5,10 +5,6 @@
 
 int main()
 {
-    std::cout << "OTCS Ground Station prototype\n";
-    std::cout << "Build pipeline is working.\n";
-    print_status_banner();
-
     const auto telemetry = otcs::parse_telemetry(
         "TM SAT=1 TIME=12000 SEQ=42 MODE=NORMAL TEMP=23 BAT=96 FAULTS=1 UPTIME=12000");
     const auto command = otcs::parse_command("CMD SET_MODE SAFE");

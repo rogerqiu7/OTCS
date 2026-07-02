@@ -4,9 +4,6 @@
 
 int main()
 {
-    std::cout << "OTCS Flight Computer host demo\n";
-    std::cout << "Embedded-side target is wired into CMake.\n";
-
     otcs::TelemetrySnapshot snapshot;
     snapshot.timestamp_ms = 12000;
     snapshot.sequence = 42;
