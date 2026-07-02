@@ -31,6 +31,32 @@
         "OTCS_ENABLE_WARNINGS": "ON",
         "OTCS_BUILD_TESTS": "OFF"
       }
+    },
+    {
+      "name": "windows-debug",
+      "displayName": "Windows Debug",
+      "description": "Local Windows debug build using Ninja and the active MSVC developer environment.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "OTCS_ENABLE_WARNINGS": "ON",
+        "OTCS_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "windows-release",
+      "displayName": "Windows Release",
+      "description": "Local Windows release build using Ninja and the active MSVC developer environment.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "OTCS_ENABLE_WARNINGS": "ON",
+        "OTCS_BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -41,6 +67,14 @@
     {
       "name": "build-macos-release",
       "configurePreset": "macos-release"
+    },
+    {
+      "name": "build-windows-debug",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "build-windows-release",
+      "configurePreset": "windows-release"
     }
   ]
 }

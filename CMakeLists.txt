@@ -21,7 +21,7 @@ if(OTCS_ENABLE_WARNINGS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
         add_compile_options(-Wall -Wextra -Wpedantic)
     elseif(MSVC)
-        add_compile_options(/W4)
+        add_compile_options(/W4 /EHsc)
     endif()
 endif()
 

@@ -2,17 +2,18 @@
 
 ## Goal
 
-Keep local development reproducible on macOS before Pico hardware arrives.
+Keep local development reproducible across macOS and Windows before Pico
+hardware-specific firmware is added.
 
 The current host-side environment should support a `C++20` workflow for the Ground Station, shared code, and host demos.
 
 ## Source Of Truth
 
-* [Brewfile](/Users/rogerqiu/Documents/code/otcs/Brewfile)
-* [CMakeLists.txt](/Users/rogerqiu/Documents/code/otcs/CMakeLists.txt)
-* [CMakePresets.json](/Users/rogerqiu/Documents/code/otcs/CMakePresets.json)
+* [Brewfile](../Brewfile)
+* [CMakeLists.txt](../CMakeLists.txt)
+* [CMakePresets.json](../CMakePresets.json)
 
-## Current Local Check
+## Current macOS Check
 
 Verified on July 1, 2026:
 
@@ -22,18 +23,61 @@ Verified on July 1, 2026:
 * `Homebrew 5.1.5`
 * `ninja` not installed yet
 
-## Next Environment Steps
+## Current Windows Check
+
+Verified on July 2, 2026:
+
+* Windows 11 Home 25H2
+* PowerShell 7.6.3
+* Visual Studio Community 2026
+* MSVC 19.50
+* CMake 4.3.4
+* Ninja 1.13.2
+* Git 2.54.0.windows.1
+
+The Windows build requires a Visual Studio developer environment so that both
+`cl.exe` and the Windows SDK libraries, such as `kernel32.lib`, are available.
+
+## Next macOS Environment Steps
 
 1. Run `brew bundle` from the repo root.
 2. Verify `ninja --version`.
 3. Configure the first local build with `cmake --preset macos-debug`.
 4. Add editor settings or formatter configuration once source files exist.
 
+## Windows Environment Steps
+
+1. Open a Developer PowerShell for Visual Studio, or run:
+
+   ```powershell
+   & 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\Launch-VsDevShell.ps1' -Arch amd64 -HostArch amd64
+   ```
+
+2. Return to the repo root:
+
+   ```powershell
+   cd C:\Users\roger\OneDrive\Documents\projects\OTCS
+   ```
+
+3. Configure and build:
+
+   ```powershell
+   cmake --preset windows-debug
+   cmake --build --preset build-windows-debug
+   ```
+
+4. Build the Flight Computer host demo when needed:
+
+   ```powershell
+   cmake --build build/windows-debug --target otcs_flight_computer_host_demo
+   ```
+
 ## Environment Expectations
 
 The environment should make it easy to maintain:
 
 * C++20 support on macOS
+* C++20 support on Windows with MSVC
 * portable host-side builds
 * separate build outputs from source
 * reproducible local configuration

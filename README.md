@@ -64,6 +64,34 @@ In practice, this means:
 
 Use these commands from the repo root during normal development.
 
+## Host Build Prerequisites
+
+OTCS currently builds host-side prototype executables for the Ground Station and
+Flight Computer demo.
+
+For macOS, install:
+
+* Apple Command Line Tools
+* Homebrew
+* CMake
+* Ninja
+* Git
+
+For Windows, install:
+
+* Visual Studio with the Desktop development with C++ workload
+* CMake
+* Ninja
+* Git
+
+On Windows, run builds from a Developer PowerShell for Visual Studio, or
+initialize the Visual Studio developer environment before configuring:
+
+```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\Launch-VsDevShell.ps1' -Arch amd64 -HostArch amd64
+cd C:\Users\roger\OneDrive\Documents\projects\OTCS
+```
+
 ## First-time configure for a fresh build directory
 
 Run this once when:
@@ -72,27 +100,64 @@ Run this once when:
 * switching generators or compilers
 * deleting the old build directory
 
+macOS:
+
 ```bash
-cmake -S . -B build/macos-debug-fresh -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --preset macos-debug
+```
+
+Windows:
+
+```powershell
+cmake --preset windows-debug
 ```
 
 ## Ground Station: rebuild and run after code changes
 
 If you changed files under `ground_station/`, usually just run:
 
+macOS:
+
 ```bash
-cmake --build build/macos-debug-fresh
-./build/macos-debug-fresh/ground_station/otcs_ground_station
+cmake --build --preset build-macos-debug
+./build/macos-debug/ground_station/otcs_ground_station
+```
+
+Windows:
+
+```powershell
+cmake --build --preset build-windows-debug
+.\build\windows-debug\ground_station\otcs_ground_station.exe
 ```
 
 ## Flight Computer host demo: rebuild and run after code changes
 
 If you changed files under `flight_computer/`, run:
 
+macOS:
+
 ```bash
-cmake --build build/macos-debug-fresh --target otcs_flight_computer_host_demo
-./build/macos-debug-fresh/flight_computer/otcs_flight_computer_host_demo
+cmake --build build/macos-debug --target otcs_flight_computer_host_demo
+./build/macos-debug/flight_computer/otcs_flight_computer_host_demo
 ```
+
+Windows:
+
+```powershell
+cmake --build build/windows-debug --target otcs_flight_computer_host_demo
+.\build\windows-debug\flight_computer\otcs_flight_computer_host_demo.exe
+```
+
+## Tests
+
+Tests are enabled in the Windows debug preset and can be run with:
+
+```powershell
+ctest --test-dir build/windows-debug --output-on-failure
+```
+
+The current `tests/` directory is a placeholder, so CTest may report that no
+tests were found until the first test target is added.
 
 ## When you do not need to reconfigure
 
