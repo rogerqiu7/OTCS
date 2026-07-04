@@ -1,27 +1,33 @@
 #include <iostream>
 
+#include "flight_computer.hpp"
 #include "text_protocol.hpp"
 
 int main()
 {
-    otcs::TelemetrySnapshot snapshot;
-    snapshot.timestamp_ms = 12000;
-    snapshot.sequence = 42;
-    snapshot.mode = otcs::SpacecraftMode::Normal;
-    snapshot.battery_percent = 96;
-    snapshot.temperature_c = 23;
-    snapshot.uptime_ms = 12000;
+    otcs::FlightComputer flight_computer;
 
-    snapshot.fault_flags = otcs::add_fault(snapshot.fault_flags, otcs::Fault::LowBattery);
+    std::cout << "OTCS Flight Computer host simulator\n\n";
 
-    const otcs::Acknowledgement acknowledgement{
-        otcs::CommandType::SetMode,
-        otcs::CommandResult::Ok,
-    };
+    std::cout << "TX: " << otcs::format_telemetry(flight_computer.tick(0)) << '\n';
+    std::cout << "TX: " << otcs::format_telemetry(flight_computer.tick(1000)) << '\n';
 
-    std::cout << "\nSample outbound messages from the Flight Computer:\n";
-    std::cout << "Telemetry: " << otcs::format_telemetry(snapshot) << '\n';
-    std::cout << "Ack:       " << otcs::format_acknowledgement(acknowledgement) << '\n';
+    const auto set_safe = otcs::parse_command("CMD SET_MODE SAFE");
+    if (set_safe.has_value()) {
+        std::cout << "RX: " << otcs::format_command(*set_safe) << '\n';
+        std::cout << "TX: " << otcs::format_acknowledgement(flight_computer.handle_command(*set_safe)) << '\n';
+    }
+
+    std::cout << "TX: " << otcs::format_telemetry(flight_computer.tick(1000)) << '\n';
+
+    const auto inject_fault = otcs::parse_command("CMD INJECT_FAULT LOW_BATTERY");
+    if (inject_fault.has_value()) {
+        std::cout << "RX: " << otcs::format_command(*inject_fault) << '\n';
+        std::cout << "TX: " << otcs::format_acknowledgement(flight_computer.handle_command(*inject_fault))
+                  << '\n';
+    }
+
+    std::cout << "TX: " << otcs::format_telemetry(flight_computer.tick(1000)) << '\n';
 
     return 0;
 }

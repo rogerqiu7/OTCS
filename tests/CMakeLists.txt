@@ -19,3 +19,14 @@ target_link_libraries(otcs_protocol_tests
 )
 
 add_test(NAME otcs_protocol_tests COMMAND otcs_protocol_tests)
+
+add_executable(otcs_flight_computer_tests
+    flight_computer_tests.cpp
+)
+
+target_link_libraries(otcs_flight_computer_tests
+    PRIVATE
+        otcs_flight_computer
+)
+
+add_test(NAME otcs_flight_computer_tests COMMAND otcs_flight_computer_tests)
