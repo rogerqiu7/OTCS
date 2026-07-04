@@ -10,6 +10,7 @@ The current host-side environment should support a `C++20` workflow for the Grou
 ## Source Of Truth
 
 * [Brewfile](../Brewfile)
+* [requirements-dev.txt](../requirements-dev.txt)
 * [CMakeLists.txt](../CMakeLists.txt)
 * [CMakePresets.json](../CMakePresets.json)
 
@@ -34,6 +35,7 @@ Verified on July 2, 2026:
 * CMake 4.3.4
 * Ninja 1.13.2
 * Git 2.54.0.windows.1
+* Python 3.11 with `pyserial` for Pico USB serial monitoring
 
 The Windows build requires a Visual Studio developer environment so that both
 `cl.exe` and the Windows SDK libraries, such as `kernel32.lib`, are available.
@@ -72,6 +74,21 @@ The Windows build requires a Visual Studio developer environment so that both
    cmake --build build/windows-debug --target otcs_flight_computer_host_demo
    ```
 
+5. Install Python developer tools for Pico serial testing:
+
+   ```powershell
+   python -m pip install -r requirements-dev.txt
+   ```
+
+6. Monitor Pico USB serial output with Python miniterm:
+
+   ```powershell
+   python -m serial.tools.miniterm COM3 115200
+   ```
+
+   Replace `COM3` with the port assigned by Windows. If the Pico has just been
+   flashed, the port may disappear and reappear while the board reboots.
+
 ## Environment Expectations
 
 The environment should make it easy to maintain:
@@ -81,3 +98,4 @@ The environment should make it easy to maintain:
 * portable host-side builds
 * separate build outputs from source
 * reproducible local configuration
+* terminal-based Pico serial testing through Python `pyserial`

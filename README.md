@@ -551,6 +551,18 @@ The project will use common C++ and embedded development tools.
 
 Used for version control.
 
+### Python
+
+Used for small developer tools around the C++ workflow. The preferred Pico USB
+serial monitor is Python's `pyserial` miniterm:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m serial.tools.miniterm COM3 115200
+```
+
+Replace `COM3` with the COM port Windows assigns to the Pico.
+
 ### CMake
 
 Used to configure and generate builds.
@@ -1189,6 +1201,7 @@ Objectives:
 * Flash firmware onto the Pico 2 W
 * Blink the onboard LED
 * Print a boot message over USB serial
+* Verify USB serial output with Python `pyserial` miniterm
 
 Deliverable:
 
@@ -1199,6 +1212,12 @@ Example output:
 ```text
 OTCS Flight Computer booting...
 SAT-001 alive.
+```
+
+Preferred Windows serial monitor:
+
+```powershell
+python -m serial.tools.miniterm COM3 115200
 ```
 
 ---
@@ -1213,7 +1232,7 @@ Objectives:
 
 * Enable USB serial output
 * Send heartbeat messages from the Pico
-* View messages from the computer
+* View messages from the computer using Python `pyserial` miniterm
 * Confirm the board can stream data continuously
 
 Deliverable:

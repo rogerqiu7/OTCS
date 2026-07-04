@@ -16,6 +16,7 @@ Windows host build verified:
 * CMake 4.3.4
 * Ninja 1.13.2
 * Git 2.54.0.windows.1
+* Python 3.11 with `pyserial` for Pico USB serial testing
 * Ground Station host executable builds and runs
 * Flight Computer host demo builds and runs
 
@@ -28,6 +29,7 @@ For local Mac development, install or verify:
 * CMake
 * Ninja
 * Git
+* Python
 * VS Code or another C++ editor
 
 For local Windows development, install or verify:
@@ -36,6 +38,8 @@ For local Windows development, install or verify:
 * CMake
 * Ninja
 * Git
+* Python
+* `pyserial` from [requirements-dev.txt](../requirements-dev.txt)
 * VS Code or another C++ editor
 
 ## Project Standard
@@ -77,6 +81,23 @@ cl
 cmake --version
 ninja --version
 git --version
+python --version
+```
+
+## Python Developer Tooling
+
+Install the Python serial monitor dependency from the repo root.
+
+Windows:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+macOS:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
 ```
 
 ## First macOS Build
@@ -129,6 +150,37 @@ ctest --test-dir build/windows-debug --output-on-failure
 The current `tests/` directory is a placeholder, so CTest may report that no
 tests were found until the first test target is added.
 
+## Pico USB Serial Monitor
+
+For Pico bring-up, use Python's `pyserial` miniterm instead of PuTTY. This keeps
+serial testing in the same terminal workflow as the rest of the project.
+
+Install the dependency once:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+Then open the Pico serial port:
+
+```powershell
+python -m serial.tools.miniterm COM3 115200
+```
+
+Replace `COM3` with the COM port Windows assigns to the Pico. If the port is not
+available immediately after flashing a UF2, wait a moment and run the command
+again; the Pico may reboot and briefly disconnect while switching from
+bootloader mode to firmware mode.
+
+Expected output from the Raspberry Pi Hello World UF2 looks like:
+
+```text
+Hello, world!
+I'm an RP2350 running RISC-V
+```
+
+Quit miniterm with `Ctrl+]`.
+
 ### Windows troubleshooting
 
 If `cl` is not recognized, or CMake fails with:
@@ -145,11 +197,13 @@ Visual Studio may change the current directory.
 
 ## Notes
 
-There is no direct C++ equivalent to `requirements.txt`.
+There is no direct C++ equivalent to `requirements.txt`, but the repo does track
+small Python developer tools used around the C++ workflow.
 
 For this repo, environment and dependency intent is tracked with:
 
 * `Brewfile` for Mac tool installation
+* `requirements-dev.txt` for Python developer tools such as `pyserial`
 * `CMakeLists.txt` for build configuration
 * `CMakePresets.json` for repeatable local build setup
 
