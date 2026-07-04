@@ -13,6 +13,7 @@ The current host-side environment should support a `C++20` workflow for the Grou
 * [requirements-dev.txt](../requirements-dev.txt)
 * [CMakeLists.txt](../CMakeLists.txt)
 * [CMakePresets.json](../CMakePresets.json)
+* [docs/FIRMWARE.md](FIRMWARE.md)
 
 ## Current macOS Check
 
@@ -36,9 +37,12 @@ Verified on July 2, 2026:
 * Ninja 1.13.2
 * Git 2.54.0.windows.1
 * Python 3.11 with `pyserial` for Pico USB serial monitoring
+* Raspberry Pi Pico VS Code extension with Pico SDK 2.3.0 for firmware builds
 
 The Windows build requires a Visual Studio developer environment so that both
 `cl.exe` and the Windows SDK libraries, such as `kernel32.lib`, are available.
+Pico firmware builds are currently handled through the Raspberry Pi Pico VS Code
+extension, which manages its own SDK/toolchain setup.
 
 ## Next macOS Environment Steps
 
@@ -89,6 +93,14 @@ The Windows build requires a Visual Studio developer environment so that both
    Replace `COM3` with the port assigned by Windows. If the Pico has just been
    flashed, the port may disappear and reappear while the board reboots.
 
+7. For Pico firmware, open `firmware/pico_satellite_node/` in VS Code and use
+   the Raspberry Pi Pico extension:
+
+   ```text
+   Compile Project
+   Run Project (USB)
+   ```
+
 ## Environment Expectations
 
 The environment should make it easy to maintain:
@@ -99,3 +111,4 @@ The environment should make it easy to maintain:
 * separate build outputs from source
 * reproducible local configuration
 * terminal-based Pico serial testing through Python `pyserial`
+* Pico firmware flashing through the Raspberry Pi Pico VS Code extension

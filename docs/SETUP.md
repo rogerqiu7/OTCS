@@ -41,6 +41,7 @@ For local Windows development, install or verify:
 * Python
 * `pyserial` from [requirements-dev.txt](../requirements-dev.txt)
 * VS Code or another C++ editor
+* Raspberry Pi Pico VS Code extension for Pico firmware build/flash workflow
 
 ## Project Standard
 
@@ -180,6 +181,42 @@ I'm an RP2350 running RISC-V
 ```
 
 Quit miniterm with `Ctrl+]`.
+
+## Pico Firmware Workflow
+
+The active Pico firmware project lives in
+[firmware/pico_satellite_node](../firmware/pico_satellite_node).
+
+Use the official Raspberry Pi Pico VS Code extension for firmware work. The
+extension manages the Pico SDK/toolchain for the project and can build/flash the
+Pico even when `arm-none-eabi-gcc` is not globally available in normal
+PowerShell.
+
+Open `firmware/pico_satellite_node/` in VS Code and use:
+
+```text
+Compile Project
+Run Project (USB)
+```
+
+`Run Project (USB)` builds the project, creates a `.uf2` firmware image, copies
+it to the Pico in BOOTSEL/USB mode, and lets the Pico reboot into the new
+firmware.
+
+Then monitor it:
+
+```powershell
+python -m serial.tools.miniterm COM3 115200
+```
+
+The current expected output is:
+
+```text
+OTCS custom Pico firmware online
+```
+
+For detailed Pico project settings and the reasoning behind them, see
+[docs/FIRMWARE.md](FIRMWARE.md).
 
 ### Windows troubleshooting
 

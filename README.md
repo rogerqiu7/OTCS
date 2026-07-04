@@ -216,17 +216,23 @@ docs/PROTOCOL.md
 docs/SETUP.md
     Platform-specific setup instructions
 
+docs/FIRMWARE.md
+    Pico firmware build, flash, and serial testing workflow
+
 ground_station/
     Desktop C++ Ground Station application
 
 flight_computer/
-    Pico 2 W firmware
+    Platform-independent spacecraft flight logic
 
 protocol/
     Shared protocol definitions
 
 common/
     Shared utilities and types
+
+firmware/pico_satellite_node/
+    Raspberry Pi Pico 2 W firmware wrapper and VS Code Pico project
 
 tests/
     Unit tests and integration tests
@@ -375,6 +381,99 @@ As the implementation grows, every new feature should preserve:
 * Protocol stability
 * Easy local testing
 * Cross-platform buildability for host-side code
+
+---
+
+# Firmware Development Workflow
+
+OTCS uses the official **Raspberry Pi Pico VS Code extension** for firmware
+bring-up and flashing.
+
+The active Pico firmware project is:
+
+```text
+firmware/pico_satellite_node/
+```
+
+The extension provides Pico-specific actions such as:
+
+* New C/C++ Project
+* Compile Project
+* Run Project (USB)
+* Switch Board
+* Switch SDK
+
+For early firmware work, open `firmware/pico_satellite_node/` in VS Code and
+use:
+
+```text
+Compile Project
+Run Project (USB)
+```
+
+`Run Project (USB)` automates the normal UF2 flashing loop:
+
+1. Build the C++ firmware project.
+2. Create a `.uf2` firmware image.
+3. Detect the Pico in USB/BOOTSEL mode.
+4. Copy the `.uf2` onto the Pico.
+5. Let the Pico reboot and run the new firmware.
+
+This mirrors the real embedded workflow at a small scale: engineers keep source
+code and tests on development machines, compile a flight image, upload that
+image to the vehicle or device, then monitor telemetry from the running system.
+
+## Pico Project Settings
+
+When creating or recreating the Pico firmware project, use:
+
+* Board: `Pico 2 W`
+* Architecture: `ARM`, not `RISC-V`
+* SDK: `2.3.0`
+* Console over USB: checked
+* Console over UART: unchecked
+* Wireless: none
+* Generate C++ code: checked
+* Run from flash: enabled
+
+Use these project options:
+
+* Run the program from RAM rather than flash: unchecked
+* Use project name as entry point file name: checked
+* Generate C++ code: checked
+* Enable C++ RTTI: unchecked
+* Enable C++ exceptions: unchecked
+* Debugger: DebugProbe selected
+* Enable CMake-Tools extension integration: unchecked
+
+Leave optional hardware features unchecked until the project actually needs
+them: SPI, I2C, UART, PIO, DMA, hardware interpolation, watchdog, timer, and
+clocks.
+
+`Console over USB` is the key setting for current testing. It sends
+`printf(...)` output to the Windows COM port that Python miniterm reads.
+
+## Firmware Serial Test
+
+Install the Python serial dependency:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+Monitor the Pico:
+
+```powershell
+python -m serial.tools.miniterm COM3 115200
+```
+
+Replace `COM3` with the COM port Windows assigns to the Pico.
+
+The current firmware prints:
+
+```text
+OTCS custom Pico firmware online
+```
 
 ---
 
@@ -586,7 +685,7 @@ Recommended editor.
 Useful extensions:
 
 * C/C++
-* CMake Tools
+* Raspberry Pi Pico
 * Cortex-Debug
 * Serial Monitor
 
@@ -659,6 +758,10 @@ The Pico 2 W can generate simulated telemetry entirely in firmware.
 The Pico 2 W runs embedded C/C++ firmware.
 
 This firmware acts as the spacecraft Flight Computer.
+
+The firmware image contains compiled copies of the shared OTCS logic it links
+against. At runtime, the Pico does not read source code from the development
+computer; it runs the compiled firmware stored in its own flash memory.
 
 Its responsibilities include:
 
@@ -876,6 +979,16 @@ Responsibilities:
 * Save mission logs
 
 The Ground Station acts like Mission Control.
+
+## Shared Flight Logic
+
+The `flight_computer/` directory is source code for the spacecraft brain. It is
+kept platform-independent so it can be tested on Windows/macOS and later linked
+into the Pico firmware.
+
+The `firmware/pico_satellite_node/` directory is the Pico-specific wrapper. It
+initializes the board, USB serial, timing, and future GPIO, then calls into
+shared flight logic.
 
 ---
 
@@ -1218,6 +1331,16 @@ Preferred Windows serial monitor:
 
 ```powershell
 python -m serial.tools.miniterm COM3 115200
+```
+
+The first custom firmware sample is in
+[firmware/pico_satellite_node](firmware/pico_satellite_node). It was created
+with the Raspberry Pi Pico VS Code extension and verified on the physical Pico
+2 W.
+
+```text
+Compile Project
+Run Project (USB)
 ```
 
 ---
