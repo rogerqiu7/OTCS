@@ -1,44 +1,65 @@
+#include <exception>
 #include <iostream>
+#include <string>
 
+#include "serial_port.hpp"
 #include "status_banner.hpp"
 #include "text_protocol.hpp"
 
-int main()
+namespace {
+
+void print_usage(const char* executable_name)
 {
-    const auto telemetry = otcs::parse_telemetry(
-        "TM SAT=1 TIME=12000 SEQ=42 MODE=NORMAL TEMP=23 BAT=96 FAULTS=1 UPTIME=12000");
-    const auto command = otcs::parse_command("CMD SET_MODE SAFE");
-    const auto acknowledgement = otcs::parse_acknowledgement("ACK SET_MODE OK");
+    std::cout << "Usage: " << executable_name << " <serial-port>\n"
+              << "Example: " << executable_name << " COM3\n";
+}
 
-    std::cout << "\nSample inbound messages parsed by the Ground Station:\n";
+void print_telemetry_status(const otcs::TelemetrySnapshot& telemetry)
+{
+    std::cout << "SAT-" << static_cast<unsigned int>(telemetry.spacecraft_id) << '\n'
+              << "  Mode:    " << otcs::to_string(telemetry.mode) << '\n'
+              << "  Battery: " << static_cast<unsigned int>(telemetry.battery_percent) << "%\n"
+              << "  Temp:    " << telemetry.temperature_c << " C\n"
+              << "  Faults:  " << telemetry.fault_flags << '\n'
+              << "  Uptime:  " << telemetry.uptime_ms << " ms\n"
+              << "  Seq:     " << telemetry.sequence << "\n\n";
+}
 
-    if (telemetry.has_value()) {
-        std::cout << "Telemetry parsed:\n";
-        std::cout << "  SAT:     " << static_cast<unsigned int>(telemetry->spacecraft_id) << '\n';
-        std::cout << "  Mode:    " << otcs::to_string(telemetry->mode) << '\n';
-        std::cout << "  Battery: " << static_cast<unsigned int>(telemetry->battery_percent) << "%\n";
-        std::cout << "  Temp:    " << telemetry->temperature_c << " C\n";
-        std::cout << "  Faults:  " << telemetry->fault_flags << '\n';
-    } else {
-        std::cout << "Telemetry parse failed.\n";
+} // namespace
+
+int main(int argc, char* argv[])
+{
+    if (argc != 2) {
+        print_usage(argv[0]);
+        return 1;
     }
 
-    if (command.has_value()) {
-        std::cout << "Command parsed: " << otcs::to_string(command->type);
-        if (command->requested_mode.has_value()) {
-            std::cout << ' ' << otcs::to_string(*command->requested_mode);
+    const std::string port_name = argv[1];
+
+    try {
+        print_status_banner();
+
+        otcs::SerialPort serial_port{port_name, 115200};
+        std::cout << "Connected to " << serial_port.port_name() << " at 115200 baud.\n"
+                  << "Waiting for telemetry. Press Ctrl+C to stop.\n\n";
+
+        while (true) {
+            const std::string line = serial_port.read_line();
+            if (line.empty()) {
+                continue;
+            }
+
+            std::cout << "RX: " << line << '\n';
+
+            const auto telemetry = otcs::parse_telemetry(line);
+            if (telemetry.has_value()) {
+                print_telemetry_status(*telemetry);
+            } else {
+                std::cout << "Ignored: message is not valid OTCS telemetry.\n\n";
+            }
         }
-        std::cout << '\n';
-    } else {
-        std::cout << "Command parse failed.\n";
+    } catch (const std::exception& error) {
+        std::cerr << "Ground Station error: " << error.what() << '\n';
+        return 1;
     }
-
-    if (acknowledgement.has_value()) {
-        std::cout << "Ack parsed:     " << otcs::to_string(acknowledgement->command_type) << ' '
-                  << otcs::to_string(acknowledgement->result) << '\n';
-    } else {
-        std::cout << "Ack parse failed.\n";
-    }
-
-    return 0;
 }

@@ -127,8 +127,12 @@ Windows:
 
 ```powershell
 cmake --build --preset build-windows-debug
-.\build\windows-debug\ground_station\otcs_ground_station.exe
+.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
 ```
+
+Replace `COM3` with the Windows serial port assigned to the Pico. The Ground
+Station opens the port at `115200` baud, reads OTCS telemetry lines, parses them
+with the shared protocol code, and prints decoded spacecraft status.
 
 ## Flight Computer host demo: rebuild and run after code changes
 
@@ -1384,7 +1388,8 @@ Objectives:
 * Create a native C++ Ground Station
 * Open the serial port
 * Read messages from the Pico 2 W
-* Print received telemetry to the terminal
+* Parse received telemetry with the shared text protocol
+* Print decoded spacecraft status to the terminal
 
 Deliverable:
 
@@ -1394,8 +1399,8 @@ Example:
 
 ```text
 OTCS Ground Station
-Connected to Pico 2 W
-RX: HEARTBEAT SAT=1 UPTIME=10
+Connected to COM3 at 115200 baud.
+RX: TM SAT=1 TIME=3000 SEQ=3 MODE=NORMAL TEMP=22 BAT=98 FAULTS=0 UPTIME=3000
 ```
 
 ---

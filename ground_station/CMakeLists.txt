@@ -1,5 +1,6 @@
 add_executable(otcs_ground_station
     main.cpp
+    serial_port.cpp
     status_banner.cpp
 )
 

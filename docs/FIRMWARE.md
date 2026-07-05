@@ -209,3 +209,12 @@ TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
 ```
 
 Quit miniterm with `Ctrl+]`.
+
+The C++ Ground Station can read the same telemetry stream:
+
+```powershell
+.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
+```
+
+Close miniterm before starting the Ground Station because Windows serial ports
+are opened exclusively.

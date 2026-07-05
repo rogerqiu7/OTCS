@@ -4,5 +4,5 @@
 
 void print_status_banner()
 {
-    std::cout << "Telemetry link placeholder is active. testing testing\n";
+    std::cout << "OTCS Ground Station\n";
 }

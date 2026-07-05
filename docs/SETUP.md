@@ -142,6 +142,16 @@ Run the host executables:
 .\build\windows-debug\flight_computer\otcs_flight_computer_host_demo.exe
 ```
 
+The Ground Station reads live Pico telemetry when given a serial port:
+
+```powershell
+.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
+```
+
+Replace `COM3` with the Windows serial port assigned to the Pico. Close Python
+miniterm before running the Ground Station because only one program can own the
+serial port at a time.
+
 Run tests:
 
 ```powershell
