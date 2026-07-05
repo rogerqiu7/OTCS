@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document will define the OTCS telemetry, command, acknowledgement, and error formats.
+This document defines the OTCS telemetry, command, acknowledgement, and error formats.
 
-The protocol design should reflect the same engineering priorities as the codebase:
+The protocol design reflects the same engineering priorities as the codebase:
 
 * clear ownership of responsibilities
 * stable message formats
@@ -147,15 +147,9 @@ RX: ACK CLEAR_FAULT OK
 RX: TM ... MODE=NORMAL ... FAULTS=0 ...
 ```
 
-## Future Sections
+## Extension Notes
 
-* Message types
-* Required fields
-* Field encoding
-* Mode enumeration
-* Fault enumeration
-* Validation rules
-* Error responses
-* Binary packet migration plan
-* Versioning strategy
-* Host/firmware compatibility rules
+The current protocol is text-based because it is easy to inspect in a serial
+monitor, easy to log, and good for bring-up. A binary packet format with sync
+bytes, payload lengths, sequence numbers, and CRC checks is a possible extension
+point, but the completed OTCS demo uses the text protocol documented above.

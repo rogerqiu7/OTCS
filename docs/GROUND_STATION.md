@@ -4,7 +4,7 @@
 
 The Ground Station is the desktop side of OTCS. It acts like early Mission
 Control: it opens the Pico's USB serial port, receives telemetry lines, parses
-them with the shared OTCS text protocol, prints decoded spacecraft status, and
+them with the shared OTCS text protocol, renders a live terminal dashboard, and
 sends operator commands back to the Pico.
 
 The main entry point is:
@@ -31,6 +31,62 @@ Pico -> TM telemetry -> Ground Station
 Ground Station -> CMD command -> Pico
 Pico -> ACK acknowledgement -> Ground Station
 ```
+
+It also creates mission logs for each run:
+
+```text
+logs/events_001.log
+logs/telemetry_001.csv
+```
+
+The exact paths are printed at startup.
+
+## Dashboard Display
+
+The Ground Station no longer prints every telemetry packet as a growing stream.
+Instead, it redraws a compact dashboard with the latest known state:
+
+```text
+OTCS Ground Station
+===================
+
+Connection: ONLINE
+Port:       COM3 @ 115200
+Last TM:    0s ago
+
+Spacecraft
+----------
+SAT:        1
+Mode:       NORMAL
+Battery:    97%
+Temp:       22 C
+Faults:     0
+Uptime:     3000 ms
+Seq:        3
+
+Activity
+--------
+Last ACK:   PING OK
+Last TX:    CMD PING
+Last RX:    TM SAT=1 TIME=3000 SEQ=3 MODE=NORMAL TEMP=22 BAT=97 FAULTS=0 UPTIME=3000
+Event:      Telemetry updated
+
+Logs
+----
+Events:     logs/events_001.log
+Telemetry:  logs/telemetry_001.csv
+
+Command examples: PING | RESET | SET_MODE SAFE | INJECT_FAULT LOW_BATTERY | CLEAR_FAULT LOW_BATTERY
+>
+```
+
+Raw RX/TX lines still go to the event log. The dashboard simply keeps the
+terminal readable during long runs.
+
+After the first valid telemetry packet arrives, the Ground Station also tracks
+link health. If no valid telemetry arrives for more than 3 seconds, it prints a
+stale-link warning and logs the event. When telemetry resumes, it prints and
+logs recovery.
 
 Supported operator inputs include:
 
@@ -278,6 +334,21 @@ Internally, on Windows, `SerialPort` uses APIs such as `CreateFileA`,
 Those APIs open and configure the COM port as `115200 baud`, `8 data bits`, `no
 parity`, and `1 stop bit`.
 
+The Ground Station then creates a `MissionLogger`. The logger creates the
+`logs/` directory if needed and chooses the next available numbered files.
+
+Example startup output:
+
+```text
+Connected to COM3 at 115200 baud.
+Event log: logs/events_001.log
+Telemetry log: logs/telemetry_001.csv
+```
+
+The Ground Station also initializes link-health state. It waits for the first
+valid telemetry packet before starting timeout checks, so startup waiting does
+not produce a false warning.
+
 ## Reading Telemetry Forever
 
 After connecting, the Ground Station enters an infinite loop:
@@ -315,13 +386,19 @@ if (line.empty()) {
 }
 ```
 
-Then the raw received line is printed:
+Then the raw received line is stored as the dashboard's last RX line:
 
 ```cpp
-std::cout << "RX: " << line << '\n';
+display.last_rx = line;
 ```
 
 `RX` means received.
+
+Each raw received line is also written to the event log:
+
+```text
+[15:09:06] RX TM SAT=1 TIME=205000 SEQ=205 MODE=NORMAL TEMP=22 BAT=0 FAULTS=0 UPTIME=205000
+```
 
 ## Sending Commands
 
@@ -341,13 +418,19 @@ is sent as:
 CMD INJECT_FAULT LOW_BATTERY
 ```
 
-The terminal prints:
+The dashboard updates `Last TX`:
 
 ```text
-TX: CMD INJECT_FAULT LOW_BATTERY
+Last TX: CMD INJECT_FAULT LOW_BATTERY
 ```
 
 `TX` means transmitted.
+
+Each transmitted command is also written to the event log:
+
+```text
+[15:09:35] TX CMD INJECT_FAULT LOW_BATTERY
+```
 
 ## Parsing The Protocol
 
@@ -390,6 +473,64 @@ else {
 The Ground Station does not crash on unexpected text. It reports the problem and
 keeps listening.
 
+## Mission Logs
+
+`events_001.log` records human-readable mission activity:
+
+```text
+[15:09:05] CONNECTED COM3 115200
+[15:09:06] RX TM SAT=1 TIME=205000 SEQ=205 MODE=NORMAL TEMP=22 BAT=0 FAULTS=0 UPTIME=205000
+[15:09:20] TX CMD PING
+[15:09:20] RX ACK PING OK
+[15:09:35] TX CMD INJECT_FAULT LOW_BATTERY
+[15:09:35] RX ACK INJECT_FAULT OK
+[15:09:36] RX TM SAT=1 TIME=220000 SEQ=220 MODE=SAFE TEMP=22 BAT=0 FAULTS=1 UPTIME=220000
+[15:10:01] LINK_STALE NO_TELEMETRY_3S
+[15:10:05] LINK_RECOVERED
+```
+
+`telemetry_001.csv` records parsed telemetry fields:
+
+```text
+host_time,timestamp_ms,sequence,spacecraft_id,mode,battery_percent,temperature_c,fault_flags,uptime_ms
+15:09:06,205000,205,1,NORMAL,0,22,0,205000
+15:09:36,220000,220,1,SAFE,0,22,1,220000
+```
+
+The event log records raw RX/TX activity. The telemetry CSV only records lines
+that successfully parse as OTCS telemetry.
+
+## Link Health
+
+The Ground Station treats telemetry as the heartbeat of the link. Acknowledgment
+messages prove commands are being answered, but they do not reset the telemetry
+timeout. Only valid `TM ...` lines do.
+
+If telemetry stops for more than 3 seconds after at least one valid telemetry
+packet has been received, the terminal prints:
+
+```text
+WARNING: No telemetry received for 3 seconds. Connection is STALE.
+```
+
+The event log records:
+
+```text
+[15:10:01] LINK_STALE NO_TELEMETRY_3S
+```
+
+When valid telemetry resumes, the terminal prints:
+
+```text
+Connection recovered.
+```
+
+The event log records:
+
+```text
+[15:10:05] LINK_RECOVERED
+```
+
 ## Error Handling
 
 Errors are caught here:
@@ -411,19 +552,28 @@ The Ground Station flow is:
 ```text
 read COM port name
 open serial port
+create mission log files
+initialize link-health timer
 loop forever:
     poll serial for one line from Pico
     if a line arrived:
-        print raw RX line
+        update dashboard last RX line
+        append raw RX line to event log
         parse line as OTCS acknowledgement or telemetry
     if telemetry is valid:
-        print decoded spacecraft status
+        update displayed spacecraft status
+        append parsed telemetry to CSV
+        refresh link-health timer
     if acknowledgement is valid:
-        print command result
+        update displayed command result
+    if telemetry has been missing for more than 3 seconds:
+        print and log stale-link warning
     poll keyboard for user command
     if a command was typed:
         normalize and validate command
         send CMD line to Pico
+        update dashboard last TX line
+        append TX command to event log
     if input or received text is invalid:
         ignore it and keep listening
 ```

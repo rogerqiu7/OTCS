@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document will describe the OTCS system architecture in implementation-level detail.
+This document describes the OTCS system architecture in implementation-level detail.
 
 ## Design Principles
 
@@ -18,11 +18,11 @@ Primary architecture goals:
 * Protocol definitions isolated from transport and UI concerns
 * Firmware logic isolated from desktop-specific behavior
 
-## Planned Module Boundaries
+## Module Boundaries
 
 * `ground_station/`: desktop control, display, logging, command entry, transport integration
 * `flight_computer/`: platform-independent spacecraft state machine, telemetry generation, command execution, fault handling
-* `firmware/pico_satellite_node/`: Pico 2 W hardware wrapper, USB serial, timing, future GPIO, firmware image
+* `firmware/pico_satellite_node/`: Pico 2 W hardware wrapper, USB serial, timing, firmware image
 * `protocol/`: shared command, acknowledgement, packet, and parsing/serialization rules
 * `common/`: shared types, enums, utility helpers that are safe to share across targets
 * `tests/`: host-side validation of parsing, state transitions, and protocol behavior
@@ -42,6 +42,8 @@ Instead, it:
 * parses each line with `otcs::parse_telemetry(...)`
   or `otcs::parse_acknowledgement(...)`
 * displays decoded spacecraft status
+* records raw mission events and parsed telemetry to disk
+* tracks telemetry freshness and reports stale/recovered link state
 * accepts operator commands from the terminal
 * serializes commands with `otcs::format_command(...)`
 * sends command lines back to the Pico
@@ -83,27 +85,15 @@ Code in `flight_computer/` should stay portable and testable:
 * fault injection and recovery
 * acknowledgement decisions
 
-## Planned Sections
-
-* Repository layout
-* Process boundaries
-* Ground Station responsibilities
-* Flight Computer responsibilities
-* Shared protocol layer
-* State machine design
-* Fault handling model
-* Logging design
-* Test strategy
-
 ## Current Notes
 
-Initial implementation should keep the architecture simple:
+The implementation keeps the architecture simple:
 
 * Host-side simulator and Ground Station run on Windows first
 * Pico firmware is running on physical Pico 2 W hardware
-* Text telemetry, commands, and acknowledgements are implemented before binary packets
+* Text telemetry, commands, and acknowledgements are the active wire protocol
 * Shared code is kept small and intentionally scoped
-* UI/presentation logic should not leak into protocol or state-machine code
+* UI/presentation logic does not leak into protocol or state-machine code
 
 ## Current Milestone
 
@@ -130,3 +120,24 @@ ACK text line and updated telemetry
 
 This was verified with `PING`, `RESET`, manual mode changes, low-battery fault
 injection, command rejection while faulted, and fault clearing back to NORMAL.
+
+The Ground Station also owns mission logging:
+
+```text
+Ground Station RX/TX activity -> logs/events_001.log
+Parsed telemetry snapshots -> logs/telemetry_001.csv
+```
+
+Logging stays on the desktop side. The Pico firmware remains focused on flight
+state, telemetry, command handling, and ACK generation.
+
+Link-health monitoring also stays on the Ground Station side:
+
+```text
+Valid TM telemetry updates last-telemetry time
+No valid telemetry for > 3 seconds -> LINK_STALE NO_TELEMETRY_3S
+Valid telemetry after stale state -> LINK_RECOVERED
+```
+
+Only telemetry resets the link-health timer. ACK messages are logged and
+displayed, but they do not prove that the periodic telemetry stream is healthy.

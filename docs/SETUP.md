@@ -166,7 +166,18 @@ clear_fault low_battery
 ```
 
 The Ground Station sends canonical protocol lines such as `CMD PING` and prints
-Pico responses such as `ACK PING OK`.
+Pico responses in the dashboard, such as `Last ACK: PING OK`.
+
+It also prints the log files for the current run:
+
+```text
+Event log: logs/events_001.log
+Telemetry log: logs/telemetry_001.csv
+```
+
+The terminal display is a live dashboard. It updates the current connection
+state, latest telemetry, last command, last acknowledgement, and log paths
+instead of printing every telemetry packet as an endless scroll.
 
 For a detailed explanation of how the Ground Station opens the serial port,
 reads lines, parses telemetry and acknowledgements, sends commands, and prints
@@ -222,6 +233,8 @@ Quit miniterm with `Ctrl+]`.
 The active Pico firmware project lives in
 [firmware/pico_satellite_node](../firmware/pico_satellite_node).
 
+For the complete end-to-end demo sequence, use [DEMO.md](DEMO.md).
+
 Use the official Raspberry Pi Pico VS Code extension for firmware work. The
 extension manages the Pico SDK/toolchain for the project and can build/flash the
 Pico even when `arm-none-eabi-gcc` is not globally available in normal
@@ -274,6 +287,35 @@ INJECT_FAULT LOW_BATTERY -> ACK INJECT_FAULT OK and telemetry MODE=SAFE FAULTS=1
 SET_MODE NORMAL while faulted -> ACK SET_MODE REJECTED
 CLEAR_FAULT LOW_BATTERY -> ACK CLEAR_FAULT OK and telemetry MODE=NORMAL FAULTS=0
 ```
+
+To test link health, stop telemetry after the Ground Station has received at
+least one valid `TM ...` line while keeping the serial port open. After 3
+seconds, the Ground Station should print:
+
+```text
+WARNING: No telemetry received for 3 seconds. Connection is STALE.
+```
+
+When telemetry resumes, it should print:
+
+```text
+Connection recovered.
+```
+
+After the run, inspect the generated logs:
+
+```powershell
+Get-Content logs\events_001.log
+Import-Csv logs\telemetry_001.csv | Select-Object -First 5
+```
+
+The actual suffix may be higher than `001` if previous log files already exist.
+The event log should include `LINK_STALE NO_TELEMETRY_3S` and `LINK_RECOVERED`
+if the timeout test was performed.
+
+If the Pico is physically unplugged, Windows may close the COM port and report a
+serial error instead of a stale-link warning. The stale-link path is for a link
+that remains open but stops receiving valid telemetry.
 
 For detailed Pico project settings and the reasoning behind them, see
 [docs/FIRMWARE.md](FIRMWARE.md).

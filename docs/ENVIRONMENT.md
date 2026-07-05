@@ -2,10 +2,11 @@
 
 ## Goal
 
-Keep local development reproducible across macOS and Windows before Pico
-hardware-specific firmware is added.
+Keep local development reproducible for the completed OTCS host and Pico
+workflow.
 
-The current host-side environment should support a `C++20` workflow for the Ground Station, shared code, and host demos.
+The environment supports a `C++20` workflow for the Ground Station, shared code,
+host tests, host demos, and Pico firmware flashing.
 
 ## Source Of Truth
 
@@ -38,18 +39,23 @@ Verified on July 2, 2026:
 * Git 2.54.0.windows.1
 * Python 3.11 with `pyserial` for Pico USB serial monitoring
 * Raspberry Pi Pico VS Code extension with Pico SDK 2.3.0 for firmware builds
+* Ground Station command, telemetry, logging, dashboard, and link-health flow verified on hardware
 
 The Windows build requires a Visual Studio developer environment so that both
 `cl.exe` and the Windows SDK libraries, such as `kernel32.lib`, are available.
 Pico firmware builds are currently handled through the Raspberry Pi Pico VS Code
 extension, which manages its own SDK/toolchain setup.
 
-## Next macOS Environment Steps
+## macOS Environment Notes
 
-1. Run `brew bundle` from the repo root.
-2. Verify `ninja --version`.
-3. Configure the first local build with `cmake --preset macos-debug`.
-4. Add editor settings or formatter configuration once source files exist.
+The primary hardware demo has been verified on Windows. The host-side CMake
+project also includes macOS presets. A macOS host build uses:
+
+```bash
+brew bundle
+cmake --preset macos-debug
+cmake --build --preset build-macos-debug
+```
 
 ## Windows Environment Steps
 

@@ -31,15 +31,17 @@ The goal is to build a realistic command-and-control platform that demonstrates 
 
 # Current Status
 
-OTCS has reached the first complete two-way embedded loop:
+OTCS is a complete first-version embedded command-and-control system:
 
 ```text
 Pico firmware runs by itself
 Pico emits OTCS telemetry over USB serial
 Ground Station opens the Windows COM port
-Ground Station reads, parses, and displays telemetry
+Ground Station reads, parses, and displays telemetry in a live terminal dashboard
 Ground Station sends text commands back to the Pico
 Pico parses commands, applies them to FlightComputer, and returns ACK messages
+Ground Station records mission events and parsed telemetry to log files
+Ground Station warns if telemetry stops for more than 3 seconds
 ```
 
 Verified live commands include:
@@ -67,6 +69,20 @@ CLEAR_FAULT LOW_BATTERY
 ACK CLEAR_FAULT OK
 TM ... MODE=NORMAL ... FAULTS=0 ...
 ```
+
+The Ground Station also creates mission logs on startup:
+
+```text
+logs/events_001.log
+logs/telemetry_001.csv
+```
+
+The event log records connection, RX, TX, ignored messages, and operator exit
+events. The telemetry CSV records parsed telemetry rows for later review.
+Link health changes such as `LINK_STALE NO_TELEMETRY_3S` and `LINK_RECOVERED`
+are logged as mission events.
+
+For the full demonstration path, see [docs/DEMO.md](docs/DEMO.md).
 
 ---
 
@@ -173,20 +189,52 @@ cmake --build --preset build-windows-debug
 
 Replace `COM3` with the Windows serial port assigned to the Pico. The Ground
 Station opens the port at `115200` baud, reads OTCS telemetry lines, parses them
-with the shared protocol code, and prints decoded spacecraft status. It also
-accepts typed commands while telemetry is streaming.
+with the shared protocol code, and renders the latest spacecraft status in a
+live terminal dashboard. It also accepts typed commands while telemetry is
+streaming.
+
+Dashboard sections:
+
+```text
+Connection: ONLINE or STALE
+Spacecraft: SAT, mode, battery, temperature, faults, uptime, sequence
+Activity: last ACK, last TX, last RX, latest event
+Logs: event and telemetry CSV paths
+Command prompt
+```
+
+On startup, it prints the log files for the current run:
+
+```text
+Event log: logs/events_001.log
+Telemetry log: logs/telemetry_001.csv
+```
+
+If valid telemetry stops for more than 3 seconds after the first packet, the
+Ground Station reports a stale link:
+
+```text
+WARNING: No telemetry received for 3 seconds. Connection is STALE.
+```
+
+When valid telemetry resumes, it reports recovery:
+
+```text
+Connection recovered.
+```
 
 Example command session:
 
 ```text
 > ping
-TX: CMD PING
-RX: ACK PING OK
+Last TX: CMD PING
+Last ACK: PING OK
 
 > inject_fault low_battery
-TX: CMD INJECT_FAULT LOW_BATTERY
-RX: ACK INJECT_FAULT OK
-RX: TM ... MODE=SAFE ... FAULTS=1 ...
+Last TX: CMD INJECT_FAULT LOW_BATTERY
+Last ACK: INJECT_FAULT OK
+Mode: SAFE
+Faults: 1
 ```
 
 User input is normalized to uppercase before being sent, so `ping` and `PING`
@@ -242,19 +290,19 @@ You usually do not need to rerun the full `cmake -S . -B ...` command for normal
 
 ---
 
-# Goals
+# Project Goals
 
-By the end of this project, we will have built a complete end-to-end embedded command-and-control system consisting of:
+OTCS is a complete end-to-end embedded command-and-control system consisting of:
 
 * An embedded Flight Computer running on a Raspberry Pi Pico 2 W
-* A desktop Ground Station running on macOS, Windows, or Linux
-* A telemetry protocol
-* A command protocol
-* Fault detection
-* State machines
-* Logging
-* Mission simulation
-* Optional hardware sensor integration
+* A desktop Ground Station running on Windows
+* A structured telemetry protocol
+* A text command and acknowledgement protocol
+* Fault injection and recovery
+* A spacecraft state machine
+* Mission logging
+* Link-health monitoring
+* A repeatable demo script
 
 The project should demonstrate skills commonly expected from:
 
@@ -271,7 +319,7 @@ The strongest hiring signal should come from code quality and system design, not
 
 # Repository Structure
 
-Planned repository structure:
+Repository structure:
 
 ```text
 otcs/
@@ -354,7 +402,7 @@ scripts/
           Controls Onboard LED / GPIO
 ````
 
-Initially, OTCS will use **USB serial communication** between the computer and the Pico 2 W.
+OTCS uses **USB serial communication** between the computer and the Pico 2 W.
 
 This is the simplest and most reliable way to begin because the same USB cable provides:
 
@@ -362,11 +410,12 @@ This is the simplest and most reliable way to begin because the same USB cable p
 * Firmware upload
 * Serial communication
 
-Later phases may optionally add Wi-Fi, TCP/UDP networking, or external sensors, but those are not required for the first complete version of the project.
+Wi-Fi, TCP/UDP networking, and external sensors are intentionally outside this
+first completed version.
 
 ---
 
-# What We Are Building
+# What OTCS Does
 
 In simple terms, OTCS is a miniature spacecraft control system.
 
@@ -438,21 +487,11 @@ The system starts simple and becomes more realistic over time.
 
 The first version may only print text over USB serial.
 
-Later versions will add:
+The completed version includes structured telemetry, command acknowledgements,
+state-machine behavior, fault injection, recovery, logging, link-health
+monitoring, and a repeatable demo flow.
 
-* Structured telemetry
-* Command acknowledgements
-* State machines
-* Binary packets
-* CRC checks
-* Fault injection
-* Logging
-* Mission scenarios
-* Optional sensors
-
-This allows the project to grow in small, testable steps.
-
-As the implementation grows, every new feature should preserve:
+The implementation preserves:
 
 * Clear module boundaries
 * Host and firmware separation
@@ -638,9 +677,9 @@ Telemetry values can be simulated in software.
 
 ---
 
-# Optional Future Hardware
+# Optional Hardware Extensions
 
-The following hardware is optional and may be added later if we want the project to include real-world sensor data.
+The following hardware is optional and outside the completed first version.
 
 These are not required for the core OTCS project.
 
@@ -981,9 +1020,11 @@ It allows us to prove that the system works before adding binary packet complexi
 
 ---
 
-# Binary Protocol
+# Binary Protocol Extension
 
-After the basic system works, OTCS will replace text messages with binary packets.
+The completed OTCS first version uses a human-readable text protocol. A binary
+packet protocol is a natural extension point, but it is intentionally outside
+the completed first version.
 
 Binary packets are more realistic for embedded systems because they are:
 
@@ -1012,7 +1053,7 @@ struct TelemetryPacket
 };
 ```
 
-The binary protocol may include:
+Such a protocol could include:
 
 * Sync bytes
 * Version
@@ -1179,16 +1220,16 @@ Fault: COMMS_TIMEOUT
 Recovery Required: RESET_FAULT
 ```
 
-## Possible Future States
+## Optional Additional States
 
-Future states may include:
+Additional states can be added without changing the current demo:
 
 * SCIENCE
 * CALIBRATION
 * LOW_POWER
 * SHUTDOWN
 
-These are optional future additions.
+These are optional extensions, not required by the completed OTCS demo.
 
 ---
 
@@ -1371,7 +1412,7 @@ Fault injection allows the project to demonstrate:
 
 # Logging
 
-The Ground Station should log important system activity.
+The Ground Station logs important system activity.
 
 Logs may include:
 
@@ -1396,434 +1437,54 @@ Example log:
 
 Logs help debug the system and make the project feel more professional.
 
----
-
-# Development Roadmap
-
-## Phase 1 — Pico 2 W Bring-Up
-
-Goal:
-
-Get the Raspberry Pi Pico 2 W running firmware.
-
-Objectives:
-
-* Install the Pico SDK
-* Build a basic firmware project
-* Flash firmware onto the Pico 2 W
-* Blink the onboard LED
-* Print a boot message over USB serial
-* Verify USB serial output with Python `pyserial` miniterm
-
-Deliverable:
-
-The Pico 2 W successfully runs custom C/C++ firmware.
-
-Example output:
+Current implementation:
 
 ```text
-OTCS Flight Computer booting...
-SAT-001 alive.
-```
-
-Preferred Windows serial monitor:
-
-```powershell
-python -m serial.tools.miniterm COM3 115200
-```
-
-The first custom firmware sample is in
-[firmware/pico_satellite_node](firmware/pico_satellite_node). It was created
-with the Raspberry Pi Pico VS Code extension and verified on the physical Pico
-2 W.
-
-```text
-Compile Project
-Run Project (USB)
-```
-
----
-
-## Phase 2 — USB Serial Heartbeat
-
-Goal:
-
-Establish basic communication between the Pico 2 W and the computer.
-
-Objectives:
-
-* Enable USB serial output
-* Send heartbeat messages from the Pico
-* View messages from the computer using Python `pyserial` miniterm
-* Confirm the board can stream data continuously
-
-Deliverable:
-
-The Pico sends periodic heartbeat messages.
-
-Example output:
-
-```text
-HEARTBEAT SAT=1 UPTIME=5
-HEARTBEAT SAT=1 UPTIME=6
-HEARTBEAT SAT=1 UPTIME=7
-```
-
----
-
-## Phase 3 — Basic Ground Station
-
-Goal:
-
-Build the first desktop Ground Station application.
-
-Objectives:
-
-* Create a native C++ Ground Station
-* Open the serial port
-* Read messages from the Pico 2 W
-* Parse received telemetry with the shared text protocol
-* Print decoded spacecraft status to the terminal
-
-Deliverable:
-
-A desktop app receives data from the embedded Flight Computer.
-
-Example:
-
-```text
-OTCS Ground Station
-Connected to COM3 at 115200 baud.
-RX: TM SAT=1 TIME=3000 SEQ=3 MODE=NORMAL TEMP=22 BAT=98 FAULTS=0 UPTIME=3000
-```
-
----
-
-## Phase 4 — Structured Text Telemetry
-
-Goal:
-
-Move from heartbeat messages to structured telemetry.
-
-Objectives:
-
-* Define telemetry fields
-* Send mode, battery, temperature, uptime, and fault flags
-* Parse telemetry on the Ground Station
-* Display spacecraft status clearly
-
-Deliverable:
-
-The Ground Station displays structured spacecraft health data.
-
-Example:
-
-```text
-SAT-001
-Mode: NORMAL
-Battery: 97%
-Temperature: 72F
-Faults: NONE
-Uptime: 60s
-```
-
----
-
-## Phase 5 — Command System
-
-Status: working over USB serial.
-
-Goal:
-
-Allow the Ground Station to control the Flight Computer.
-
-Objectives:
-
-* Send commands from the Ground Station
-* Receive commands on the Pico 2 W
-* Validate commands
-* Execute commands
-* Send acknowledgements
-
-Deliverable:
-
-The system supports two-way command and telemetry communication.
-
-Example:
-
-```text
-> SET_MODE SAFE
-ACK SET_MODE OK
-Mode changed to SAFE
-```
-
-Live test sequence:
-
-```text
-RESET
-PING
-SET_MODE SAFE
-SET_MODE NORMAL
-INJECT_FAULT LOW_BATTERY
-SET_MODE NORMAL
-CLEAR_FAULT LOW_BATTERY
-PING
-```
-
-Expected behavior:
-
-```text
-RESET restores BOOT/NORMAL state and battery to 100%.
-PING returns ACK PING OK.
-SET_MODE SAFE enters SAFE.
-SET_MODE NORMAL returns to NORMAL when no fault is active.
-INJECT_FAULT LOW_BATTERY enters SAFE and reports FAULTS=1.
-SET_MODE NORMAL is rejected while the fault is active.
-CLEAR_FAULT LOW_BATTERY clears FAULTS and returns to NORMAL.
-```
-
----
-
-## Phase 6 — Spacecraft State Machine
-
-Goal:
-
-Implement realistic spacecraft modes.
-
-Objectives:
-
-* Implement BOOT
-* Implement NORMAL
-* Implement SAFE
-* Implement FAULT
-* Define valid state transitions
-* Reject invalid transitions
-
-Deliverable:
-
-The Pico 2 W behaves like a small flight computer with controlled operational states.
-
-Example transitions:
-
-```text
-BOOT -> NORMAL
-NORMAL -> SAFE
-SAFE -> NORMAL
-NORMAL -> FAULT
-FAULT -> SAFE
-```
-
----
-
-## Phase 7 — Fault Injection and Recovery
-
-Goal:
-
-Test how the system behaves under abnormal conditions.
-
-Objectives:
-
-* Add simulated faults
-* Trigger faults from the Ground Station
-* Automatically enter SAFE mode when needed
-* Report faults in telemetry
-* Support fault clearing and recovery
-
-Deliverable:
-
-The system can simulate spacecraft problems and recover from them.
-
-Example:
-
-```text
-> INJECT_FAULT LOW_BATTERY
-ACK INJECT_FAULT OK
-WARNING: LOW_BATTERY
-Mode changed to SAFE
-```
-
----
-
-## Phase 8 — Binary Telemetry and Command Protocol
-
-Goal:
-
-Replace text messages with a realistic binary protocol.
-
-Objectives:
-
-* Define binary packet structure
-* Add packet type field
-* Add sequence numbers
-* Add payload length
-* Add CRC
-* Serialize packets on the Pico
-* Deserialize packets on the Ground Station
-* Reject invalid packets
-
-Deliverable:
-
-A professional custom telemetry and command protocol.
-
-Example packet fields:
-
-```text
-SYNC
-VERSION
-PACKET_TYPE
-SEQUENCE_NUMBER
-TIMESTAMP
-PAYLOAD_LENGTH
-PAYLOAD
-CRC
-```
-
----
-
-## Phase 9 — Logging and Diagnostics
-
-Goal:
-
-Make the system easier to debug and demonstrate.
-
-Objectives:
-
-* Log telemetry to disk
-* Log commands
-* Log acknowledgements
-* Log faults
-* Log mode transitions
-* Add readable diagnostic output
-
-Deliverable:
-
-The Ground Station produces useful mission logs.
-
-Example:
-
-```text
-logs/mission_001.log
-logs/telemetry_001.csv
 logs/events_001.log
+logs/telemetry_001.csv
 ```
 
----
-
-## Phase 10 — Mission Simulation
-
-Goal:
-
-Create complete demo scenarios.
-
-Objectives:
-
-* Nominal mission scenario
-* Low battery scenario
-* High temperature scenario
-* Communication timeout scenario
-* Fault recovery scenario
-* Manual command scenario
-
-Deliverable:
-
-A complete demonstration platform that can be shown in a portfolio or interview.
-
-Example scenario:
+Example event log:
 
 ```text
-1. Boot spacecraft
-2. Enter NORMAL mode
-3. Stream telemetry
-4. Inject LOW_BATTERY fault
-5. Automatically enter SAFE mode
-6. Send RESET_FAULT
-7. Return to NORMAL mode
-8. Save mission log
+[15:09:05] CONNECTED COM3 115200
+[15:09:06] RX TM SAT=1 TIME=205000 SEQ=205 MODE=NORMAL TEMP=22 BAT=0 FAULTS=0 UPTIME=205000
+[15:09:20] TX CMD PING
+[15:09:20] RX ACK PING OK
+[15:09:35] TX CMD INJECT_FAULT LOW_BATTERY
+[15:09:35] RX ACK INJECT_FAULT OK
+[15:10:01] LINK_STALE NO_TELEMETRY_3S
+[15:10:05] LINK_RECOVERED
+```
+
+Example telemetry CSV:
+
+```text
+host_time,timestamp_ms,sequence,spacecraft_id,mode,battery_percent,temperature_c,fault_flags,uptime_ms
+15:09:06,205000,205,1,NORMAL,0,22,0,205000
+15:09:36,220000,220,1,SAFE,0,22,1,220000
 ```
 
 ---
 
-## Optional Phase 11 — Hardware Sensors
+# Completed Capabilities
 
-Goal:
+OTCS includes:
 
-Add real-world sensor input if desired.
+* Pico 2 W firmware running the shared Flight Computer logic
+* Structured text telemetry over USB serial
+* A native C++ Ground Station for Windows host testing
+* A live terminal dashboard
+* Two-way command and acknowledgement traffic
+* Command validation and rejection
+* Spacecraft modes: `BOOT`, `NORMAL`, `SAFE`, and `FAULT`
+* Simulated fault injection and recovery
+* Mission event logs
+* Parsed telemetry CSV logs
+* Telemetry link-health detection
+* Host-side tests for common types, protocol parsing, and flight behavior
 
-This phase is optional.
-
-Objectives:
-
-* Connect a BME280 sensor
-* Read real temperature, humidity, and pressure
-* Connect an MPU6050 sensor
-* Read acceleration and gyro data
-* Include real sensor readings in telemetry
-
-Deliverable:
-
-The Flight Computer sends real hardware sensor telemetry.
-
-This phase requires optional additional hardware:
-
-* Breadboard
-* Jumper wires
-* BME280
-* MPU6050
-* Possibly resistors or additional components
-
-This phase is not required for the core project.
-
----
-
-## Optional Phase 12 — Wi-Fi or TCP/UDP Communication
-
-Goal:
-
-Experiment with wireless or networked communication.
-
-This phase is optional.
-
-Possible approaches:
-
-* Pico 2 W sends telemetry over Wi-Fi
-* Ground Station listens over TCP or UDP
-* A Linux satellite simulator bridges between Pico and Ground Station
-* Multiple simulated spacecraft communicate with one Ground Station
-
-This phase is more advanced and not required for the initial embedded project.
-
----
-
-# Long-Term Goals
-
-Potential future improvements include:
-
-* Wi-Fi telemetry
-* TCP/IP Ground Station
-* UDP telemetry stream
-* Multiple spacecraft
-* Mission scripting
-* Packet replay
-* Telemetry graphs
-* Configuration files
-* JSON export
-* CSV export
-* Mission recorder
-* Fault history
-* Unit tests
-* Integration tests
-* CI/CD
-* Cross-platform installers
-* Real-time dashboard
-* Web-based telemetry viewer
-* Multiple Flight Computers
-* Simulated ground network
-
----
-
-# Success Criteria
-
-At completion, OTCS should demonstrate:
+The completed demo demonstrates:
 
 * Modern C++
 * Embedded firmware
@@ -1838,9 +1499,12 @@ At completion, OTCS should demonstrate:
 * Logging
 * Diagnostics
 * Mission simulation
-* Optional hardware integration
+* Hardware-in-the-loop behavior over USB serial
 
-The final result should resemble a simplified spacecraft command-and-control platform that is easy to explain during technical interviews and provides a strong portfolio piece for embedded systems, aerospace, robotics, defense, and systems software engineering roles.
+The result is a simplified spacecraft command-and-control platform that is easy
+to explain during technical interviews and provides a strong portfolio piece for
+embedded systems, aerospace, robotics, defense, and systems software engineering
+roles.
 
 ---
 
