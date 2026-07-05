@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace otcs {
 
@@ -21,11 +22,14 @@ public:
 
     [[nodiscard]] const std::string& port_name() const;
     [[nodiscard]] std::string read_line();
+    [[nodiscard]] bool try_read_line(std::string& line);
+    void write_line(std::string_view line);
 
 private:
     void close();
 
     std::string port_name_;
+    std::string pending_line_;
 
 #ifdef _WIN32
     void* handle_{nullptr};

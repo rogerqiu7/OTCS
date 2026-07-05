@@ -18,7 +18,9 @@ Windows host build verified:
 * Git 2.54.0.windows.1
 * Python 3.11 with `pyserial` for Pico USB serial testing
 * Ground Station host executable builds and runs
+* Ground Station sends commands and receives acknowledgements over USB serial
 * Flight Computer host demo builds and runs
+* Host-side CTest suite passes
 
 ## Required Tools
 
@@ -142,7 +144,8 @@ Run the host executables:
 .\build\windows-debug\flight_computer\otcs_flight_computer_host_demo.exe
 ```
 
-The Ground Station reads live Pico telemetry when given a serial port:
+The Ground Station reads live Pico telemetry and sends commands when given a
+serial port:
 
 ```powershell
 .\build\windows-debug\ground_station\otcs_ground_station.exe COM3
@@ -152,8 +155,22 @@ Replace `COM3` with the Windows serial port assigned to the Pico. Close Python
 miniterm before running the Ground Station because only one program can own the
 serial port at a time.
 
+Example operator commands:
+
+```text
+ping
+reset
+set_mode safe
+inject_fault low_battery
+clear_fault low_battery
+```
+
+The Ground Station sends canonical protocol lines such as `CMD PING` and prints
+Pico responses such as `ACK PING OK`.
+
 For a detailed explanation of how the Ground Station opens the serial port,
-reads lines, parses telemetry, and prints spacecraft status, see
+reads lines, parses telemetry and acknowledgements, sends commands, and prints
+spacecraft status, see
 [docs/GROUND_STATION.md](GROUND_STATION.md).
 
 Run tests:
@@ -162,8 +179,12 @@ Run tests:
 ctest --test-dir build/windows-debug --output-on-failure
 ```
 
-The current `tests/` directory is a placeholder, so CTest may report that no
-tests were found until the first test target is added.
+Current tests cover common type conversion, text protocol parsing/formatting,
+and FlightComputer command/fault behavior. Recent Windows result:
+
+```text
+100% tests passed, 0 tests failed out of 3
+```
 
 ## Pico USB Serial Monitor
 
@@ -228,6 +249,30 @@ The current expected output is OTCS text telemetry once per second:
 ```text
 TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
 TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
+```
+
+After closing miniterm, run the Ground Station and test the two-way path:
+
+```powershell
+.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
+```
+
+Then type:
+
+```text
+PING
+INJECT_FAULT LOW_BATTERY
+SET_MODE NORMAL
+CLEAR_FAULT LOW_BATTERY
+```
+
+Expected highlights:
+
+```text
+PING -> ACK PING OK
+INJECT_FAULT LOW_BATTERY -> ACK INJECT_FAULT OK and telemetry MODE=SAFE FAULTS=1
+SET_MODE NORMAL while faulted -> ACK SET_MODE REJECTED
+CLEAR_FAULT LOW_BATTERY -> ACK CLEAR_FAULT OK and telemetry MODE=NORMAL FAULTS=0
 ```
 
 For detailed Pico project settings and the reasoning behind them, see

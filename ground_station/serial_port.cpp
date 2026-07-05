@@ -1,6 +1,8 @@
 #include "serial_port.hpp"
 
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #ifdef _WIN32
@@ -124,31 +126,84 @@ const std::string& SerialPort::port_name() const
 
 std::string SerialPort::read_line()
 {
-    std::string line;
+    while (true) {
+        std::string line;
+        if (try_read_line(line)) {
+            return line;
+        }
+    }
+}
+
+bool SerialPort::try_read_line(std::string& line)
+{
+    line.clear();
 
     while (true) {
         char byte = '\0';
 
 #ifdef _WIN32
+        DWORD errors = 0;
+        COMSTAT status{};
+        if (!ClearCommError(handle_, &errors, &status)) {
+            throw std::runtime_error(last_windows_error_message("checking serial data"));
+        }
+
+        if (status.cbInQue == 0) {
+            return false;
+        }
+
         DWORD bytes_read = 0;
         if (!ReadFile(handle_, &byte, 1, &bytes_read, nullptr)) {
+            if (GetLastError() == ERROR_OPERATION_ABORTED) {
+                ClearCommError(handle_, &errors, &status);
+                return false;
+            }
+
             throw std::runtime_error(last_windows_error_message("reading serial data"));
         }
 
         if (bytes_read == 0) {
-            continue;
+            return false;
         }
 #else
         throw std::runtime_error("SerialPort is currently implemented for Windows only.");
 #endif
 
         if (byte == '\n') {
-            return line;
+            line = std::move(pending_line_);
+            pending_line_.clear();
+            return true;
         }
 
         if (byte != '\r') {
-            line.push_back(byte);
+            pending_line_.push_back(byte);
         }
+    }
+}
+
+void SerialPort::write_line(const std::string_view line)
+{
+    const std::string message = std::string{line} + '\n';
+    std::size_t bytes_written_total = 0;
+
+    while (bytes_written_total < message.size()) {
+#ifdef _WIN32
+        DWORD bytes_written = 0;
+        const char* next_byte = message.data() + bytes_written_total;
+        const DWORD bytes_remaining = static_cast<DWORD>(message.size() - bytes_written_total);
+
+        if (!WriteFile(handle_, next_byte, bytes_remaining, &bytes_written, nullptr)) {
+            throw std::runtime_error(last_windows_error_message("writing serial data"));
+        }
+
+        if (bytes_written == 0) {
+            throw std::runtime_error("writing serial data failed: no bytes were written");
+        }
+
+        bytes_written_total += bytes_written;
+#else
+        throw std::runtime_error("SerialPort is currently implemented for Windows only.");
+#endif
     }
 }
 

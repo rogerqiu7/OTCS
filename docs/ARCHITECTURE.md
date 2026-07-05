@@ -38,13 +38,17 @@ instantiate `otcs::FlightComputer`.
 Instead, it:
 
 * opens the Pico's Windows COM port
-* reads one newline-terminated telemetry message at a time
+* reads newline-terminated telemetry and acknowledgement messages
 * parses each line with `otcs::parse_telemetry(...)`
+  or `otcs::parse_acknowledgement(...)`
 * displays decoded spacecraft status
-* ignores invalid telemetry without crashing
+* accepts operator commands from the terminal
+* serializes commands with `otcs::format_command(...)`
+* sends command lines back to the Pico
+* ignores invalid telemetry or acknowledgement text without crashing
 
 The Pico firmware owns the onboard state machine. The Ground Station is the
-desktop monitoring side of the system.
+desktop monitoring and command side of the system.
 
 ## Source Versus Firmware Image
 
@@ -67,7 +71,8 @@ handle Pico-specific responsibilities:
 * initialize USB serial with `stdio_init_all()`
 * provide timing with Pico SDK calls
 * print telemetry over USB serial
-* read future command input from USB serial
+* read command input from USB serial
+* send acknowledgements over USB serial
 * control future GPIO or onboard indicators
 
 Code in `flight_computer/` should stay portable and testable:
@@ -90,12 +95,38 @@ Code in `flight_computer/` should stay portable and testable:
 * Logging design
 * Test strategy
 
-## Placeholder Notes
+## Current Notes
 
 Initial implementation should keep the architecture simple:
 
-* Host-side simulator and Ground Station run on macOS first
-* Pico firmware is added once hardware arrives
-* Text protocol is implemented before binary packets
+* Host-side simulator and Ground Station run on Windows first
+* Pico firmware is running on physical Pico 2 W hardware
+* Text telemetry, commands, and acknowledgements are implemented before binary packets
 * Shared code is kept small and intentionally scoped
 * UI/presentation logic should not leak into protocol or state-machine code
+
+## Current Milestone
+
+The current architecture has a working two-way USB serial loop:
+
+```text
+Ground Station command input
+        |
+        v
+CMD text line over COM port
+        |
+        v
+Pico firmware command poller
+        |
+        v
+shared protocol parser
+        |
+        v
+FlightComputer::handle_command(...)
+        |
+        v
+ACK text line and updated telemetry
+```
+
+This was verified with `PING`, `RESET`, manual mode changes, low-battery fault
+injection, command rejection while faulted, and fault clearing back to NORMAL.

@@ -4,7 +4,8 @@
 
 The Ground Station is the desktop side of OTCS. It acts like early Mission
 Control: it opens the Pico's USB serial port, receives telemetry lines, parses
-them with the shared OTCS text protocol, and prints decoded spacecraft status.
+them with the shared OTCS text protocol, prints decoded spacecraft status, and
+sends operator commands back to the Pico.
 
 The main entry point is:
 
@@ -20,6 +21,54 @@ Run it on Windows with:
 
 Replace `COM3` with the serial port assigned to the Pico. Close Python miniterm
 first because Windows allows only one program to own the serial port at a time.
+
+## Current Two-Way Behavior
+
+The Ground Station now supports the live command-and-control loop:
+
+```text
+Pico -> TM telemetry -> Ground Station
+Ground Station -> CMD command -> Pico
+Pico -> ACK acknowledgement -> Ground Station
+```
+
+Supported operator inputs include:
+
+```text
+PING
+RESET
+SET_MODE SAFE
+SET_MODE NORMAL
+INJECT_FAULT LOW_BATTERY
+CLEAR_FAULT LOW_BATTERY
+```
+
+The Ground Station normalizes typed input to uppercase and adds the `CMD`
+prefix before sending. For example:
+
+```text
+> ping
+TX: CMD PING
+RX: ACK PING OK
+```
+
+The verified fault demo is:
+
+```text
+> INJECT_FAULT LOW_BATTERY
+TX: CMD INJECT_FAULT LOW_BATTERY
+RX: ACK INJECT_FAULT OK
+RX: TM ... MODE=SAFE ... FAULTS=1 ...
+
+> SET_MODE NORMAL
+TX: CMD SET_MODE NORMAL
+RX: ACK SET_MODE REJECTED
+
+> CLEAR_FAULT LOW_BATTERY
+TX: CMD CLEAR_FAULT LOW_BATTERY
+RX: ACK CLEAR_FAULT OK
+RX: TM ... MODE=NORMAL ... FAULTS=0 ...
+```
 
 ## Important Split
 
@@ -37,8 +86,9 @@ That code lives in:
 firmware/pico_satellite_node/main.cpp
 ```
 
-The Pico runs the flight computer logic and sends telemetry. The Ground Station
-only listens, parses, and displays.
+The Pico runs the flight computer logic, sends telemetry, receives commands,
+and returns acknowledgements. The Ground Station displays telemetry and acts as
+the operator command terminal.
 
 ## Includes
 
@@ -236,16 +286,18 @@ After connecting, the Ground Station enters an infinite loop:
 while (true) {
 ```
 
-This loop continues until the user stops it with `Ctrl+C`.
+This loop continues until the user stops it with `EXIT`, `QUIT`, or `Ctrl+C`.
 
-Each pass reads one full line from the Pico:
+Each pass polls the serial port for a full line from the Pico:
 
 ```cpp
-const std::string line = serial_port.read_line();
+serial_port.try_read_line(line)
 ```
 
-`read_line()` reads bytes from the serial port until it sees a newline
-character.
+`try_read_line(...)` returns immediately when no bytes are waiting. On Windows,
+the implementation checks the COM port receive queue before calling `ReadFile`.
+That keeps the Ground Station responsive to keyboard input while telemetry is
+streaming.
 
 The Pico sends lines like:
 
@@ -253,7 +305,7 @@ The Pico sends lines like:
 TM SAT=1 TIME=3000 SEQ=3 MODE=NORMAL TEMP=22 BAT=98 FAULTS=0 UPTIME=3000
 ```
 
-The Ground Station stores that complete line in `line`.
+The Ground Station stores each complete received line in `line`.
 
 Blank lines are skipped:
 
@@ -271,23 +323,50 @@ std::cout << "RX: " << line << '\n';
 
 `RX` means received.
 
+## Sending Commands
+
+The Ground Station also polls the keyboard for typed commands. When the user
+presses Enter, it parses the command with the shared protocol code and sends the
+canonical command line over serial.
+
+For example, this user input:
+
+```text
+inject_fault low_battery
+```
+
+is sent as:
+
+```text
+CMD INJECT_FAULT LOW_BATTERY
+```
+
+The terminal prints:
+
+```text
+TX: CMD INJECT_FAULT LOW_BATTERY
+```
+
+`TX` means transmitted.
+
 ## Parsing The Protocol
 
 The key protocol step is:
 
 ```cpp
+const auto acknowledgement = otcs::parse_acknowledgement(line);
 const auto telemetry = otcs::parse_telemetry(line);
 ```
 
-`otcs::parse_telemetry(...)` is defined in:
+`otcs::parse_acknowledgement(...)` and `otcs::parse_telemetry(...)` are defined in:
 
 ```text
 protocol/text_protocol.cpp
 ```
 
-It checks whether the received line matches the OTCS telemetry format. If the
-line is valid, it returns a `TelemetrySnapshot`. If the line is invalid, it
-returns empty.
+The Ground Station first checks whether a received line is an `ACK` message. If
+not, it checks whether the line is telemetry. Valid telemetry returns a
+`TelemetrySnapshot`. Invalid text is ignored safely.
 
 That is why the next check is:
 
@@ -304,7 +383,7 @@ If parsing fails, the line is ignored safely:
 
 ```cpp
 else {
-    std::cout << "Ignored: message is not valid OTCS telemetry.\n\n";
+    std::cout << "Ignored: message is not valid OTCS telemetry or acknowledgement.\n\n";
 }
 ```
 
@@ -333,14 +412,21 @@ The Ground Station flow is:
 read COM port name
 open serial port
 loop forever:
-    read one line from Pico
-    print raw RX line
-    parse line as OTCS telemetry
-    if valid:
+    poll serial for one line from Pico
+    if a line arrived:
+        print raw RX line
+        parse line as OTCS acknowledgement or telemetry
+    if telemetry is valid:
         print decoded spacecraft status
-    else:
+    if acknowledgement is valid:
+        print command result
+    poll keyboard for user command
+    if a command was typed:
+        normalize and validate command
+        send CMD line to Pico
+    if input or received text is invalid:
         ignore it and keep listening
 ```
 
 The Pico is running the spacecraft logic. The Ground Station is Mission
-Control's ears and display.
+Control's ears, display, and command console.

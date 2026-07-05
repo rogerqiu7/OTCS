@@ -29,6 +29,47 @@ The goal is to build a realistic command-and-control platform that demonstrates 
 
 ---
 
+# Current Status
+
+OTCS has reached the first complete two-way embedded loop:
+
+```text
+Pico firmware runs by itself
+Pico emits OTCS telemetry over USB serial
+Ground Station opens the Windows COM port
+Ground Station reads, parses, and displays telemetry
+Ground Station sends text commands back to the Pico
+Pico parses commands, applies them to FlightComputer, and returns ACK messages
+```
+
+Verified live commands include:
+
+```text
+PING
+RESET
+SET_MODE SAFE
+SET_MODE NORMAL
+INJECT_FAULT LOW_BATTERY
+CLEAR_FAULT LOW_BATTERY
+```
+
+The fault injection and recovery demo is working:
+
+```text
+INJECT_FAULT LOW_BATTERY
+ACK INJECT_FAULT OK
+TM ... MODE=SAFE ... FAULTS=1 ...
+
+SET_MODE NORMAL
+ACK SET_MODE REJECTED
+
+CLEAR_FAULT LOW_BATTERY
+ACK CLEAR_FAULT OK
+TM ... MODE=NORMAL ... FAULTS=0 ...
+```
+
+---
+
 # Engineering Stance
 
 OTCS targets **C++20** as the project language standard.
@@ -132,7 +173,24 @@ cmake --build --preset build-windows-debug
 
 Replace `COM3` with the Windows serial port assigned to the Pico. The Ground
 Station opens the port at `115200` baud, reads OTCS telemetry lines, parses them
-with the shared protocol code, and prints decoded spacecraft status.
+with the shared protocol code, and prints decoded spacecraft status. It also
+accepts typed commands while telemetry is streaming.
+
+Example command session:
+
+```text
+> ping
+TX: CMD PING
+RX: ACK PING OK
+
+> inject_fault low_battery
+TX: CMD INJECT_FAULT LOW_BATTERY
+RX: ACK INJECT_FAULT OK
+RX: TM ... MODE=SAFE ... FAULTS=1 ...
+```
+
+User input is normalized to uppercase before being sent, so `ping` and `PING`
+both produce `CMD PING`.
 
 For a detailed walkthrough of the Ground Station code, see
 [docs/GROUND_STATION.md](docs/GROUND_STATION.md).
@@ -163,8 +221,18 @@ Tests are enabled in the Windows debug preset and can be run with:
 ctest --test-dir build/windows-debug --output-on-failure
 ```
 
-The current `tests/` directory is a placeholder, so CTest may report that no
-tests were found until the first test target is added.
+The current test suite covers:
+
+* shared spacecraft type conversion and fault flags
+* text telemetry, command, and acknowledgement parsing/formatting
+* FlightComputer mode transitions, fault injection, command rejection, recovery,
+  and reset behavior
+
+Recent Windows verification:
+
+```text
+100% tests passed, 0 tests failed out of 3
+```
 
 ## When you do not need to reconfigure
 
@@ -484,6 +552,23 @@ The current firmware prints OTCS text telemetry once per second:
 ```text
 TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
 TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
+```
+
+It also polls USB serial for command lines such as:
+
+```text
+CMD PING
+CMD SET_MODE SAFE
+CMD INJECT_FAULT LOW_BATTERY
+CMD CLEAR_FAULT LOW_BATTERY
+```
+
+For each valid command, the Pico returns an acknowledgement:
+
+```text
+ACK PING OK
+ACK SET_MODE OK
+ACK INJECT_FAULT OK
 ```
 
 ---
@@ -1446,6 +1531,8 @@ Uptime: 60s
 
 ## Phase 5 — Command System
 
+Status: working over USB serial.
+
 Goal:
 
 Allow the Ground Station to control the Flight Computer.
@@ -1468,6 +1555,31 @@ Example:
 > SET_MODE SAFE
 ACK SET_MODE OK
 Mode changed to SAFE
+```
+
+Live test sequence:
+
+```text
+RESET
+PING
+SET_MODE SAFE
+SET_MODE NORMAL
+INJECT_FAULT LOW_BATTERY
+SET_MODE NORMAL
+CLEAR_FAULT LOW_BATTERY
+PING
+```
+
+Expected behavior:
+
+```text
+RESET restores BOOT/NORMAL state and battery to 100%.
+PING returns ACK PING OK.
+SET_MODE SAFE enters SAFE.
+SET_MODE NORMAL returns to NORMAL when no fault is active.
+INJECT_FAULT LOW_BATTERY enters SAFE and reports FAULTS=1.
+SET_MODE NORMAL is rejected while the fault is active.
+CLEAR_FAULT LOW_BATTERY clears FAULTS and returns to NORMAL.
 ```
 
 ---

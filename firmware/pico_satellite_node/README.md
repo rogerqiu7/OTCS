@@ -8,11 +8,24 @@ and flashed with that extension during early development.
 ## Current Behavior
 
 The firmware initializes USB serial, runs the shared OTCS flight computer logic,
-and prints text telemetry once per second:
+prints text telemetry once per second, polls USB serial for commands, and sends
+acknowledgements:
 
 ```text
 TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
 TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
+ACK PING OK
+```
+
+Supported command examples:
+
+```text
+CMD PING
+CMD RESET
+CMD SET_MODE SAFE
+CMD SET_MODE NORMAL
+CMD INJECT_FAULT LOW_BATTERY
+CMD CLEAR_FAULT LOW_BATTERY
 ```
 
 ## Build And Flash
@@ -42,6 +55,30 @@ python -m serial.tools.miniterm COM3 115200
 ```
 
 Replace `COM3` with the Windows COM port assigned to the Pico.
+
+For the full two-way test, close miniterm and run the Ground Station:
+
+```powershell
+.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
+```
+
+Then type:
+
+```text
+PING
+INJECT_FAULT LOW_BATTERY
+SET_MODE NORMAL
+CLEAR_FAULT LOW_BATTERY
+```
+
+Expected highlights:
+
+```text
+PING -> ACK PING OK
+INJECT_FAULT LOW_BATTERY -> SAFE mode with FAULTS=1
+SET_MODE NORMAL while faulted -> ACK SET_MODE REJECTED
+CLEAR_FAULT LOW_BATTERY -> NORMAL mode with FAULTS=0
+```
 
 ## Intended Direction
 

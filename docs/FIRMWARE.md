@@ -70,6 +70,7 @@ ground_station/
 The long-term goal is for `firmware/pico_satellite_node/main.cpp` to stay thin:
 initialize Pico hardware, create a `FlightComputer`, call `tick()`, format
 telemetry, print it over USB serial, read commands, and send acknowledgements.
+That text-protocol command loop is now implemented.
 
 ## VS Code Pico Extension
 
@@ -208,9 +209,38 @@ TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
 TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
 ```
 
+It also polls USB serial for text commands while waiting between telemetry
+cycles. Valid command lines include:
+
+```text
+CMD PING
+CMD RESET
+CMD SET_MODE SAFE
+CMD SET_MODE NORMAL
+CMD INJECT_FAULT LOW_BATTERY
+CMD CLEAR_FAULT LOW_BATTERY
+```
+
+The firmware parses each command, applies it to `otcs::FlightComputer`, and
+prints an acknowledgement:
+
+```text
+ACK PING OK
+ACK RESET OK
+ACK SET_MODE OK
+ACK INJECT_FAULT OK
+ACK CLEAR_FAULT OK
+```
+
+Invalid command text produces:
+
+```text
+ERR CMD INVALID
+```
+
 Quit miniterm with `Ctrl+]`.
 
-The C++ Ground Station can read the same telemetry stream:
+The C++ Ground Station can read the telemetry stream and send commands:
 
 ```powershell
 .\build\windows-debug\ground_station\otcs_ground_station.exe COM3
@@ -218,3 +248,24 @@ The C++ Ground Station can read the same telemetry stream:
 
 Close miniterm before starting the Ground Station because Windows serial ports
 are opened exclusively.
+
+Verified live command sequence:
+
+```text
+RESET
+PING
+SET_MODE SAFE
+SET_MODE NORMAL
+INJECT_FAULT LOW_BATTERY
+SET_MODE NORMAL
+CLEAR_FAULT LOW_BATTERY
+PING
+```
+
+Expected recovery behavior:
+
+```text
+INJECT_FAULT LOW_BATTERY -> ACK INJECT_FAULT OK -> telemetry enters SAFE with FAULTS=1
+SET_MODE NORMAL while faulted -> ACK SET_MODE REJECTED
+CLEAR_FAULT LOW_BATTERY -> ACK CLEAR_FAULT OK -> telemetry returns NORMAL with FAULTS=0
+```
