@@ -152,6 +152,10 @@ Replace `COM3` with the Windows serial port assigned to the Pico. Close Python
 miniterm before running the Ground Station because only one program can own the
 serial port at a time.
 
+For a detailed explanation of how the Ground Station opens the serial port,
+reads lines, parses telemetry, and prints spacecraft status, see
+[docs/GROUND_STATION.md](GROUND_STATION.md).
+
 Run tests:
 
 ```powershell

@@ -27,6 +27,25 @@ Primary architecture goals:
 * `common/`: shared types, enums, utility helpers that are safe to share across targets
 * `tests/`: host-side validation of parsing, state transitions, and protocol behavior
 
+The current Ground Station serial reader and `main.cpp` control flow are
+explained in [docs/GROUND_STATION.md](GROUND_STATION.md).
+
+## Ground Station Boundary
+
+The Ground Station does not create or run the spacecraft brain. It does not
+instantiate `otcs::FlightComputer`.
+
+Instead, it:
+
+* opens the Pico's Windows COM port
+* reads one newline-terminated telemetry message at a time
+* parses each line with `otcs::parse_telemetry(...)`
+* displays decoded spacecraft status
+* ignores invalid telemetry without crashing
+
+The Pico firmware owns the onboard state machine. The Ground Station is the
+desktop monitoring side of the system.
+
 ## Source Versus Firmware Image
 
 The `flight_computer/`, `protocol/`, and `common/` directories are source code

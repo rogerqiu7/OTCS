@@ -134,6 +134,9 @@ Replace `COM3` with the Windows serial port assigned to the Pico. The Ground
 Station opens the port at `115200` baud, reads OTCS telemetry lines, parses them
 with the shared protocol code, and prints decoded spacecraft status.
 
+For a detailed walkthrough of the Ground Station code, see
+[docs/GROUND_STATION.md](docs/GROUND_STATION.md).
+
 ## Flight Computer host demo: rebuild and run after code changes
 
 If you changed files under `flight_computer/`, run:
@@ -222,6 +225,9 @@ docs/SETUP.md
 
 docs/FIRMWARE.md
     Pico firmware build, flash, and serial testing workflow
+
+docs/GROUND_STATION.md
+    Desktop Ground Station serial reader and main.cpp walkthrough
 
 ground_station/
     Desktop C++ Ground Station application
@@ -984,6 +990,9 @@ Responsibilities:
 * Save mission logs
 
 The Ground Station acts like Mission Control.
+
+The current Ground Station implementation is documented line by line in
+[docs/GROUND_STATION.md](docs/GROUND_STATION.md).
 
 ## Shared Flight Logic
 
