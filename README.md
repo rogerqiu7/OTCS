@@ -2,7 +2,7 @@
 
 ## Overview
 
-OTCS (Orbital Telemetry & Command System) is a modern C++ and embedded systems project that simulates a spacecraft communicating with a ground control station.
+OTCS (Orbital Telemetry & Command System) is a modern C++ and embedded systems project that simulates a spacecraft communicating with a ground control station. Implemented shared C++ flight-computer logic for both host tests and embedded firmware, including spacecraft modes, command validation, fault handling, and telemetry generation.
 
 Unlike a simple software-only simulation, OTCS combines:
 
