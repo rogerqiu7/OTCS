@@ -469,10 +469,11 @@ python -m serial.tools.miniterm COM3 115200
 
 Replace `COM3` with the COM port Windows assigns to the Pico.
 
-The current firmware prints:
+The current firmware prints OTCS text telemetry once per second:
 
 ```text
-OTCS custom Pico firmware online
+TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
+TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
 ```
 
 ---

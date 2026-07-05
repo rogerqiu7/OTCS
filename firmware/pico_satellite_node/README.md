@@ -7,10 +7,12 @@ and flashed with that extension during early development.
 
 ## Current Behavior
 
-The firmware initializes USB serial and prints:
+The firmware initializes USB serial, runs the shared OTCS flight computer logic,
+and prints text telemetry once per second:
 
 ```text
-OTCS custom Pico firmware online
+TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
+TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
 ```
 
 ## Build And Flash

@@ -33,9 +33,17 @@ project(pico_satellite_node C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+# The Pico project lives under firmware/, but the first real satellite behavior
+# comes from the shared OTCS modules at the repo root.
+set(OTCS_ROOT ${CMAKE_CURRENT_LIST_DIR}/../..)
 
-add_executable(pico_satellite_node main.cpp)
+# Add executable. Default name is the project name, version 0.1
+add_executable(pico_satellite_node
+        main.cpp
+        ${OTCS_ROOT}/common/spacecraft_types.cpp
+        ${OTCS_ROOT}/protocol/text_protocol.cpp
+        ${OTCS_ROOT}/flight_computer/flight_computer.cpp
+)
 
 pico_set_program_name(pico_satellite_node "pico_satellite_node")
 pico_set_program_version(pico_satellite_node "0.1")
@@ -51,7 +59,19 @@ target_link_libraries(pico_satellite_node
 # Add the standard include files to the build
 target_include_directories(pico_satellite_node PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${OTCS_ROOT}/common
+        ${OTCS_ROOT}/protocol
+        ${OTCS_ROOT}/flight_computer
 )
+
+target_compile_features(pico_satellite_node PRIVATE cxx_std_20)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(pico_satellite_node PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
+                $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
+        )
+endif()
 
 # Add any user requested libraries
 target_link_libraries(pico_satellite_node 
