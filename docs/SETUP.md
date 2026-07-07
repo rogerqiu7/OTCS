@@ -1,83 +1,87 @@
-# Setup
+# Setup, Environment, Protocol, and Demo
 
-## Status
+## Purpose
 
-Local macOS environment verified:
+This is the single operational guide for OTCS.
 
-* `clang++` installed
-* `cmake` installed
-* `git` installed
-* `brew` installed
-* `ninja` missing at time of scaffold
+It replaces the old separate setup, environment, protocol, and demo docs. Use
+this file when you need to:
 
-Windows host build verified:
+* set up the machine
+* build the host code
+* flash the Pico
+* understand the serial message format
+* run the end-to-end hardware demo
 
-* Visual Studio Community 2026 with MSVC 19.50
-* CMake 4.3.4
-* Ninja 1.13.2
-* Git 2.54.0.windows.1
-* Python 3.11 with `pyserial` for Pico USB serial testing
-* Ground Station host executable builds and runs
-* Ground Station sends commands and receives acknowledgements over USB serial
-* Flight Computer host demo builds and runs
-* Host-side CTest suite passes
+## What This Repo Is
 
-## Required Tools
+OTCS is split into a few small modules:
 
-For local Mac development, install or verify:
+* `common/`: shared enums, structs, and helpers
+* `protocol/`: text telemetry, command, and acknowledgement parsing/formatting
+* `flight_computer/`: platform-independent spacecraft state logic
+* `ground_station/`: Windows desktop operator app
+* `firmware/pico_satellite_node/`: Pico 2 W firmware wrapper that runs the shared flight computer on hardware
+* `tests/`: host-side validation
 
-* Apple Command Line Tools
-* Homebrew
-* CMake
-* Ninja
-* Git
-* Python
-* VS Code or another C++ editor
+The Pico runs the spacecraft side. The Ground Station is the operator side.
 
-For local Windows development, install or verify:
+## Environment
 
-* Visual Studio with the Desktop development with C++ workload
-* CMake
-* Ninja
-* Git
-* Python
-* `pyserial` from [requirements-dev.txt](../requirements-dev.txt)
-* VS Code or another C++ editor
-* Raspberry Pi Pico VS Code extension for Pico firmware build/flash workflow
+### macOS
 
-## Project Standard
-
-The project standard is `C++20`.
-
-The code style should still favor conservative embedded-friendly design:
-
-* explicit ownership
-* simple interfaces
-* limited abstraction depth
-* cross-platform host builds
-* clean separation between desktop and embedded responsibilities
-
-## Install Commands
+Use Homebrew packages from [Brewfile](../Brewfile):
 
 ```bash
 xcode-select --install
 brew bundle
 ```
 
-`brew bundle` uses the repo's [Brewfile](../Brewfile).
+Current Brewfile contents:
 
-## macOS Verification Commands
+* `cmake`
+* `ninja`
+* `llvm` as an optional local tool
+
+Verify the basics:
 
 ```bash
 clang++ --version
 cmake --version
 ninja --version
 git --version
+python3 --version
 ```
 
-## Windows Verification Commands
+### Windows
 
-Run these from a Developer PowerShell for Visual Studio:
+The hardware demo path is centered on Windows. Install or verify:
+
+* Visual Studio with the Desktop development with C++ workload
+* CMake
+* Ninja
+* Git
+* Python 3
+* `pyserial` from [requirements-dev.txt](../requirements-dev.txt)
+* VS Code with the Raspberry Pi Pico extension
+
+Verified toolchain notes already captured in the repo:
+
+* Visual Studio Community 2026
+* MSVC 19.50
+* CMake 4.3.4
+* Ninja 1.13.2
+* Git 2.54.0.windows.1
+* Python 3.11
+* Pico SDK 2.3.0 through the VS Code extension
+
+Open a Developer PowerShell for Visual Studio, or run:
+
+```powershell
+& 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\Launch-VsDevShell.ps1' -Arch amd64 -HostArch amd64
+```
+
+Verify the host toolchain:
 
 ```powershell
 cl
@@ -87,9 +91,9 @@ git --version
 python --version
 ```
 
-## Python Developer Tooling
+### Python serial tooling
 
-Install the Python serial monitor dependency from the repo root.
+Install the serial helper once from the repo root:
 
 Windows:
 
@@ -103,33 +107,16 @@ macOS:
 python3 -m pip install -r requirements-dev.txt
 ```
 
-## First macOS Build
+## Build
 
-After `ninja` is installed:
+### macOS host build
 
 ```bash
 cmake --preset macos-debug
 cmake --build --preset build-macos-debug
 ```
 
-## Windows Host Build
-
-Install or verify:
-
-* Visual Studio with the Desktop development with C++ workload
-* CMake
-* Ninja
-* Git
-
-If using a normal PowerShell session, initialize the Visual Studio developer
-environment before configuring:
-
-```powershell
-& 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\Launch-VsDevShell.ps1' -Arch amd64 -HostArch amd64
-cd C:\Users\roger\OneDrive\Documents\projects\OTCS
-```
-
-Then configure and build:
+### Windows host build
 
 ```powershell
 cmake --preset windows-debug
@@ -137,220 +124,339 @@ cmake --build --preset build-windows-debug
 cmake --build build/windows-debug --target otcs_flight_computer_host_demo
 ```
 
-Run the host executables:
+The root [CMakePresets.json](../CMakePresets.json) defines:
 
-```powershell
-.\build\windows-debug\ground_station\otcs_ground_station.exe
-.\build\windows-debug\flight_computer\otcs_flight_computer_host_demo.exe
-```
+* `macos-debug`
+* `macos-release`
+* `windows-debug`
+* `windows-release`
 
-The Ground Station reads live Pico telemetry and sends commands when given a
-serial port:
+Host tests are enabled in the Windows presets and disabled in the macOS presets.
 
-```powershell
-.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
-```
-
-Replace `COM3` with the Windows serial port assigned to the Pico. Close Python
-miniterm before running the Ground Station because only one program can own the
-serial port at a time.
-
-Example operator commands:
-
-```text
-ping
-reset
-set_mode safe
-inject_fault low_battery
-clear_fault low_battery
-```
-
-The Ground Station sends canonical protocol lines such as `CMD PING` and prints
-Pico responses in the dashboard, such as `Last ACK: PING OK`.
-
-It also prints the log files for the current run:
-
-```text
-Event log: logs/events_001.log
-Telemetry log: logs/telemetry_001.csv
-```
-
-The terminal display is a live dashboard. It updates the current connection
-state, latest telemetry, last command, last acknowledgement, and log paths
-instead of printing every telemetry packet as an endless scroll.
-
-For a detailed explanation of how the Ground Station opens the serial port,
-reads lines, parses telemetry and acknowledgements, sends commands, and prints
-spacecraft status, see
-[docs/GROUND_STATION.md](GROUND_STATION.md).
-
-Run tests:
+### Run tests
 
 ```powershell
 ctest --test-dir build/windows-debug --output-on-failure
 ```
 
-Current tests cover common type conversion, text protocol parsing/formatting,
-and FlightComputer command/fault behavior. Recent Windows result:
+Current tests cover:
 
-```text
-100% tests passed, 0 tests failed out of 3
-```
+* shared type conversion in `common/`
+* text protocol parsing/formatting in `protocol/`
+* command and fault behavior in `flight_computer/`
 
-## Pico USB Serial Monitor
+## Pico firmware
 
-For Pico bring-up, use Python's `pyserial` miniterm instead of PuTTY. This keeps
-serial testing in the same terminal workflow as the rest of the project.
+The active firmware project is [firmware/pico_satellite_node](../firmware/pico_satellite_node).
 
-Install the dependency once:
-
-```powershell
-python -m pip install -r requirements-dev.txt
-```
-
-Then open the Pico serial port:
-
-```powershell
-python -m serial.tools.miniterm COM3 115200
-```
-
-Replace `COM3` with the COM port Windows assigns to the Pico. If the port is not
-available immediately after flashing a UF2, wait a moment and run the command
-again; the Pico may reboot and briefly disconnect while switching from
-bootloader mode to firmware mode.
-
-Expected output from the Raspberry Pi Hello World UF2 looks like:
-
-```text
-Hello, world!
-I'm an RP2350 running RISC-V
-```
-
-Quit miniterm with `Ctrl+]`.
-
-## Pico Firmware Workflow
-
-The active Pico firmware project lives in
-[firmware/pico_satellite_node](../firmware/pico_satellite_node).
-
-For the complete end-to-end demo sequence, use [DEMO.md](DEMO.md).
-
-Use the official Raspberry Pi Pico VS Code extension for firmware work. The
-extension manages the Pico SDK/toolchain for the project and can build/flash the
-Pico even when `arm-none-eabi-gcc` is not globally available in normal
-PowerShell.
-
-Open `firmware/pico_satellite_node/` in VS Code and use:
+Open that folder in VS Code and use the Raspberry Pi Pico extension:
 
 ```text
 Compile Project
 Run Project (USB)
 ```
 
-`Run Project (USB)` builds the project, creates a `.uf2` firmware image, copies
-it to the Pico in BOOTSEL/USB mode, and lets the Pico reboot into the new
-firmware.
+That project compiles:
 
-Then monitor it:
+* `firmware/pico_satellite_node/main.cpp`
+* `common/spacecraft_types.cpp`
+* `protocol/text_protocol.cpp`
+* `flight_computer/flight_computer.cpp`
+
+So the Pico is not just running a one-off sketch. It is running the shared
+flight computer and protocol code inside a Pico-specific wrapper.
+
+For more detail on what the Pico actually runs, see
+[docs/FLIGHT_COMPUTER.md](FLIGHT_COMPUTER.md) and
+[docs/FIRMWARE.md](FIRMWARE.md).
+
+## Serial protocol
+
+The current wire format is newline-delimited text over USB serial.
+
+### Telemetry from Pico to Ground Station
+
+Example:
+
+```text
+TM SAT=1 TIME=12345 SEQ=7 MODE=NORMAL TEMP=22 BAT=95 FAULTS=0 UPTIME=12345
+```
+
+Required fields, in order:
+
+```text
+TM
+SAT=<spacecraft id>
+TIME=<timestamp milliseconds>
+SEQ=<telemetry sequence number>
+MODE=<BOOT|NORMAL|SAFE|FAULT>
+TEMP=<temperature Celsius>
+BAT=<battery percent 0-100>
+FAULTS=<fault bitmask>
+UPTIME=<uptime milliseconds>
+```
+
+`parse_telemetry(...)` is strict. Wrong field order, missing fields, unknown
+mode names, or impossible battery values are rejected.
+
+### Commands from Ground Station to Pico
+
+Example:
+
+```text
+CMD SET_MODE SAFE
+```
+
+Supported command shapes in the current code:
+
+```text
+CMD PING
+CMD RESET
+CMD SET_MODE BOOT
+CMD SET_MODE NORMAL
+CMD SET_MODE SAFE
+CMD SET_MODE FAULT
+CMD RESET_FAULT
+CMD INJECT_FAULT LOW_BATTERY
+CMD INJECT_FAULT HIGH_TEMPERATURE
+CMD INJECT_FAULT SENSOR_OFFLINE
+CMD INJECT_FAULT COMMS_TIMEOUT
+CMD INJECT_FAULT INVALID_COMMAND
+CMD CLEAR_FAULT LOW_BATTERY
+CMD CLEAR_FAULT HIGH_TEMPERATURE
+CMD CLEAR_FAULT SENSOR_OFFLINE
+CMD CLEAR_FAULT COMMS_TIMEOUT
+CMD CLEAR_FAULT INVALID_COMMAND
+CMD REQUEST_STATUS
+```
+
+The Ground Station lets the operator type plain commands like `ping` or
+`inject_fault low_battery`, normalizes them to uppercase, and sends the
+canonical `CMD ...` line.
+
+### Acknowledgements from Pico to Ground Station
+
+Example:
+
+```text
+ACK SET_MODE OK
+```
+
+Results:
+
+```text
+OK
+REJECTED
+INVALID
+```
+
+Malformed command text does not produce an `ACK`. The firmware prints:
+
+```text
+ERR CMD INVALID
+```
+
+## Running the host tools
+
+### Ground Station
+
+Run the desktop app with the Pico COM port:
+
+```powershell
+.\build\windows-debug\ground_station\otcs_ground_station.exe COM3
+```
+
+Replace `COM3` with the actual port. Close Python miniterm first because
+Windows only lets one process own the serial port at a time.
+
+The Ground Station:
+
+* reads Pico telemetry and acknowledgements
+* redraws a terminal dashboard
+* logs events to `logs/events_###.log`
+* logs parsed telemetry to `logs/telemetry_###.csv`
+* marks the connection stale after 3 seconds without valid telemetry
+
+For the code walkthrough, see [docs/GROUND_STATION.md](GROUND_STATION.md).
+
+### Flight Computer host demo
+
+Run:
+
+```powershell
+.\build\windows-debug\flight_computer\otcs_flight_computer_host_demo.exe
+```
+
+This is a tiny host-side demo of the portable spacecraft logic without the Pico
+wrapper around it.
+
+## Pico serial monitor
+
+For quick bring-up, use Python miniterm:
 
 ```powershell
 python -m serial.tools.miniterm COM3 115200
 ```
 
-The current expected output is OTCS text telemetry once per second:
+Replace `COM3` with the assigned port. Quit miniterm with `Ctrl+]`.
+
+With the OTCS firmware loaded, you should see telemetry like:
 
 ```text
 TM SAT=1 TIME=1000 SEQ=1 MODE=BOOT TEMP=22 BAT=100 FAULTS=0 UPTIME=1000
 TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
 ```
 
-After closing miniterm, run the Ground Station and test the two-way path:
+You can type commands like:
+
+```text
+CMD PING
+CMD RESET
+CMD SET_MODE SAFE
+CMD INJECT_FAULT LOW_BATTERY
+CMD CLEAR_FAULT LOW_BATTERY
+```
+
+## End-to-end demo
+
+### 1. Flash the Pico
+
+Open [firmware/pico_satellite_node](../firmware/pico_satellite_node) in VS
+Code and use:
+
+```text
+Compile Project
+Run Project (USB)
+```
+
+### 2. Build the Ground Station
+
+```powershell
+cmake --build --preset build-windows-debug
+```
+
+### 3. Start the Ground Station
 
 ```powershell
 .\build\windows-debug\ground_station\otcs_ground_station.exe COM3
 ```
 
-Then type:
+### 4. Confirm the link
+
+Type:
 
 ```text
 PING
+```
+
+Expected result:
+
+```text
+ACK PING OK
+```
+
+### 5. Reset the spacecraft
+
+```text
+RESET
+```
+
+Expected result:
+
+```text
+ACK RESET OK
+Mode returns through BOOT then back to NORMAL
+Battery returns to 100%
+```
+
+### 6. Change mode manually
+
+```text
+SET_MODE SAFE
+SET_MODE NORMAL
+```
+
+Expected result:
+
+```text
+ACK SET_MODE OK
+```
+
+### 7. Inject a fault and confirm rejection logic
+
+```text
 INJECT_FAULT LOW_BATTERY
 SET_MODE NORMAL
+```
+
+Expected result:
+
+```text
+ACK INJECT_FAULT OK
+Mode becomes SAFE
+FAULTS becomes 1
+
+ACK SET_MODE REJECTED
+Mode stays SAFE
+```
+
+### 8. Clear the fault
+
+```text
 CLEAR_FAULT LOW_BATTERY
 ```
 
-Expected highlights:
+Expected result:
 
 ```text
-PING -> ACK PING OK
-INJECT_FAULT LOW_BATTERY -> ACK INJECT_FAULT OK and telemetry MODE=SAFE FAULTS=1
-SET_MODE NORMAL while faulted -> ACK SET_MODE REJECTED
-CLEAR_FAULT LOW_BATTERY -> ACK CLEAR_FAULT OK and telemetry MODE=NORMAL FAULTS=0
+ACK CLEAR_FAULT OK
+Mode returns to NORMAL
+FAULTS becomes 0
 ```
 
-To test link health, stop telemetry after the Ground Station has received at
-least one valid `TM ...` line while keeping the serial port open. After 3
-seconds, the Ground Station should print:
+### 9. Inspect logs
+
+Exit with:
 
 ```text
-WARNING: No telemetry received for 3 seconds. Connection is STALE.
+EXIT
 ```
 
-When telemetry resumes, it should print:
-
-```text
-Connection recovered.
-```
-
-After the run, inspect the generated logs:
+Then inspect:
 
 ```powershell
 Get-Content logs\events_001.log
 Import-Csv logs\telemetry_001.csv | Select-Object -First 5
 ```
 
-The actual suffix may be higher than `001` if previous log files already exist.
-The event log should include `LINK_STALE NO_TELEMETRY_3S` and `LINK_RECOVERED`
-if the timeout test was performed.
+The exact numeric suffix depends on previous runs.
 
-If the Pico is physically unplugged, Windows may close the COM port and report a
-serial error instead of a stale-link warning. The stale-link path is for a link
-that remains open but stops receiving valid telemetry.
+### 10. Observe link health behavior
 
-For detailed Pico project settings and the reasoning behind them, see
-[docs/FIRMWARE.md](FIRMWARE.md).
-
-### Windows troubleshooting
-
-If `cl` is not recognized, or CMake fails with:
+If valid telemetry stops for more than 3 seconds after the first good packet,
+the Ground Station reports the link as stale and logs:
 
 ```text
-LINK : fatal error LNK1104: cannot open file 'kernel32.lib'
+LINK_STALE NO_TELEMETRY_3S
 ```
 
-the Visual Studio compiler or Windows SDK environment is not loaded in the
-current shell. Start a Developer PowerShell for Visual Studio, or run
-`Launch-VsDevShell.ps1` before configuring the project. After launching the
-developer shell, return to the repo directory before running CMake because
-Visual Studio may change the current directory.
+When valid telemetry resumes, it logs:
 
-## Notes
+```text
+LINK_RECOVERED
+```
 
-There is no direct C++ equivalent to `requirements.txt`, but the repo does track
-small Python developer tools used around the C++ workflow.
+## Summary
 
-For this repo, environment and dependency intent is tracked with:
+This one guide now covers the full OTCS operating path:
 
-* `Brewfile` for Mac tool installation
-* `requirements-dev.txt` for Python developer tools such as `pyserial`
-* `CMakeLists.txt` for build configuration
-* `CMakePresets.json` for repeatable local build setup
-
-The build is configured for `C++20` in the root [CMakeLists.txt](../CMakeLists.txt).
-
-Later, if external C++ libraries are added, we can introduce either:
-
-* `vcpkg.json`
-* `conanfile.txt` or `conanfile.py`
-
-For now, no third-party C++ libraries are required.
+```text
+Build host tools
+Flash Pico
+Watch telemetry
+Send commands
+Observe ACK results
+Inject and clear faults
+Review mission logs
+Verify stale-link detection
+```

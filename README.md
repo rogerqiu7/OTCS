@@ -49,7 +49,7 @@ ACK CLEAR_FAULT OK
 TM ... MODE=NORMAL ... FAULTS=0 ...
 ```
 
-For the full walkthrough, see [docs/DEMO.md](docs/DEMO.md).
+For the full walkthrough, see [docs/SETUP.md](docs/SETUP.md).
 
 ## Architecture
 
@@ -100,7 +100,7 @@ ground_station/            Native desktop Ground Station
 firmware/pico_satellite_node/
                            Raspberry Pi Pico 2 W firmware project
 tests/                     Host-side unit and integration tests
-docs/                      Architecture, protocol, setup, firmware, and demo docs
+docs/                      Architecture, setup, firmware, and code walkthrough docs
 logs/                      Runtime mission logs
 ```
 
@@ -135,13 +135,11 @@ Current verification:
 
 ## Documentation
 
-- [Demo Script](docs/DEMO.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Protocol](docs/PROTOCOL.md)
+- [Setup / Environment / Protocol / Demo](docs/SETUP.md)
 - [Ground Station](docs/GROUND_STATION.md)
+- [Flight Computer](docs/FLIGHT_COMPUTER.md)
 - [Firmware](docs/FIRMWARE.md)
-- [Setup](docs/SETUP.md)
-- [Environment](docs/ENVIRONMENT.md)
 
 ## Project Summary
 

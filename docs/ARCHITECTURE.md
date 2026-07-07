@@ -141,3 +141,223 @@ Valid telemetry after stale state -> LINK_RECOVERED
 
 Only telemetry resets the link-health timer. ACK messages are logged and
 displayed, but they do not prove that the periodic telemetry stream is healthy.
+
+## Simple USB Serial Data Flow
+
+The easiest way to think about the current OTCS connection is:
+
+```text
+Pico <---- USB serial ----> Ground Station on the PC
+```
+
+This is one connection with traffic moving in both directions.
+
+On Windows, that connection appears as a COM port such as `COM3`.
+
+## What The Pico Is Actually Polling
+
+The Pico is not polling something literally named `COM3`.
+
+`COM3` is only the Windows name for the USB serial connection on the PC side.
+
+On the Pico side, the firmware initializes USB serial with `stdio_init_all()`
+and then repeatedly checks whether any characters have arrived on its USB stdio
+input stream.
+
+In simple terms, the Pico keeps asking:
+
+```text
+Did the computer send me any characters yet?
+```
+
+If characters are available, the Pico reads them until it reaches a newline.
+That full line becomes one command message.
+
+So the command path is:
+
+```text
+Ground Station writes text to COM3
+        |
+        v
+USB cable carries those bytes
+        |
+        v
+Pico polls its USB serial input
+        |
+        v
+Pico reads one full line such as CMD PING
+```
+
+## Where Pico Telemetry Goes
+
+Every second, the Pico generates a telemetry snapshot and formats it into one
+text line such as:
+
+```text
+TM SAT=1 TIME=2000 SEQ=2 MODE=NORMAL TEMP=22 BAT=99 FAULTS=0 UPTIME=2000
+```
+
+The firmware then sends that line with `printf(...)`.
+
+In this project, `printf(...)` is not just printing to a local screen. Because
+USB stdio is enabled, that text is sent out over the Pico's USB serial
+connection.
+
+So the telemetry path is:
+
+```text
+FlightComputer creates telemetry
+        |
+        v
+protocol formats TM text
+        |
+        v
+Pico printf(...) sends bytes over USB serial
+        |
+        v
+Windows receives those bytes on COM3
+        |
+        v
+Ground Station reads and parses the TM line
+```
+
+So yes, the Pico "prints" telemetry, but that print output is the real serial
+transport that the Ground Station reads.
+
+## What The Ground Station Reads
+
+The Ground Station opens the Windows COM port that belongs to the Pico, for
+example `COM3`.
+
+It then repeatedly:
+
+* checks whether bytes are waiting on that COM port
+* reads them
+* collects them until newline
+* treats the result as one message
+* parses the message as either telemetry (`TM ...`) or acknowledgement (`ACK ...`)
+
+So in simple terms:
+
+```text
+Pico sends text
+        |
+        v
+Windows exposes that text on COM3
+        |
+        v
+Ground Station reads COM3
+```
+
+## Ground Station To Pico Example
+
+If the operator types:
+
+```text
+PING
+```
+
+the Ground Station turns that into:
+
+```text
+CMD PING
+```
+
+and writes it to the COM port.
+
+Then:
+
+```text
+Ground Station writes CMD PING to COM3
+        |
+        v
+Pico sees incoming bytes during its poll loop
+        |
+        v
+Pico reads the full line
+        |
+        v
+shared protocol parses CMD PING
+        |
+        v
+FlightComputer handles the command
+        |
+        v
+Pico sends ACK PING OK back over USB serial
+```
+
+## Pico To Ground Station Example
+
+Once per second, the Pico creates and sends telemetry:
+
+```text
+TM SAT=1 TIME=3000 SEQ=3 MODE=NORMAL TEMP=22 BAT=98 FAULTS=0 UPTIME=3000
+```
+
+Then:
+
+```text
+Pico sends TM line over USB serial
+        |
+        v
+Windows makes that data available on COM3
+        |
+        v
+Ground Station reads one full line from COM3
+        |
+        v
+shared protocol parses the telemetry
+        |
+        v
+dashboard and logs update
+```
+
+## Why Polling Matters
+
+The Pico is not currently using interrupts or a separate communications task
+for command input.
+
+Instead, the firmware follows this simple pattern:
+
+1. generate telemetry
+2. send telemetry
+3. spend about one second checking for command bytes
+4. repeat
+
+So "polling" just means the Pico keeps checking whether new command bytes have
+shown up on the USB serial input.
+
+## If OTCS Moves To Wi-Fi Later
+
+If the transport changes to Wi-Fi, the protocol text can stay the same:
+
+```text
+TM ...
+CMD ...
+ACK ...
+```
+
+But the delivery path would change.
+
+Current transport:
+
+```text
+USB serial
+PC endpoint = COM3
+```
+
+Possible future transport:
+
+```text
+network socket
+endpoint = IP address + port
+```
+
+That would mean:
+
+* the Pico would send telemetry to a socket instead of USB serial
+* the Ground Station would read from a socket instead of `COM3`
+* the Ground Station would send commands back to the Pico over the network
+
+So the language would stay the same, but the transport would change from serial
+bytes on a COM port to network bytes on a socket.
